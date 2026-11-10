@@ -1,2 +1,30 @@
-<!doctype html><html lang="en" translate="no" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"><meta name="theme-color" content="#124a2d"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>IP Generator and Tracker</title><link rel="stylesheet" href="css/style.css"></head><body><main><h1>Self test</h1><div class="panel"><button onclick="go()">Run tests</button></div><div class="tw"><table id="t"></table></div></main><script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script><script src="js/tests.js"></script>
-<script>function go(){var T=runTests();$('#t').innerHTML='<tr><th>Test</th><th>Result</th></tr>'+T.map(function(x){return'<tr><td>'+esc(x[0])+'</td><td class="'+(x[1]?'good':'full')+'">'+(x[1]?'PASS':'FAIL '+esc(x[2]))+'</td></tr>'}).join('')+'<tr><td><b>Total</b></td><td><b>'+T.filter(function(x){return x[1]}).length+' / '+T.length+' passed</b></td></tr>'}go()</script></body></html>
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<title>Self test - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main id="main">
+  <div class="pagehead"><div><h1>Engine self-test</h1><p>Checks the address rules, allocation and import validation. Uses no stored data.</p></div><button class="primary" id="go">Run again</button></div>
+  <div id="msg" class="msg"></div>
+  <div class="tw" style="max-height:none"><table id="t"></table></div>
+</main>
+<script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script><script src="js/tests.js"></script>
+<script>
+function go() {
+  var T = runTests(), passed = T.filter(function (x) { return x[1]; }).length;
+  $('#t').innerHTML = '<thead><tr><th class="rn">#</th><th>Test</th><th>Result</th></tr></thead><tbody>' + T.map(function (x, i) {
+    return '<tr><td class="rn">' + (i + 1) + '</td><td>' + esc(x[0]) + '</td><td class="' + (x[1] ? 'good' : 'full') + '">' + (x[1] ? 'PASS' : 'FAIL ' + esc(x[2])) + '</td></tr>';
+  }).join('') + '</tbody>';
+  msg(passed + ' / ' + T.length + ' tests passed.', passed === T.length ? 1 : 'bad');
+  document.title = (passed === T.length ? 'PASS ' : 'FAIL ') + passed + '/' + T.length;
+}
+$('#go').onclick = go; go();
+</script>
+</body>
+</html>

@@ -1,42 +1,171 @@
-<!doctype html><html lang="en" translate="no" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"><meta name="theme-color" content="#124a2d"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>IP Generator and Tracker</title><link rel="stylesheet" href="css/style.css"></head><body><main><h1>IP Generation</h1>
-<div class="panel"><form id="f" onsubmit="return false" oninput="clearPv()" autocomplete="off">
-<h2><i>1</i>Facility</h2><div class="grid"><div><label for="fac">Facility</label><select id="fac"></select></div>
-<div><label for="num">Well number</label><input id="num" inputmode="numeric" maxlength="5" placeholder="e.g. 1000"><small>Full name: <b id="nm">-</b></small></div></div>
-<h2><i>2</i>Network</h2><div class="grid"><div><label for="gcp">GCP &amp; Ring</label><select id="gcp"></select></div><div><label for="ven">Vendor</label><select id="ven"></select></div></div>
-<h2><i>3</i>Who and when</h2><div class="grid"><div><label for="eng">TSU PAN Engineer</label><select id="eng"></select></div><div><label for="date">Date (automatic)</label><input id="date" type="text" readonly></div></div></form>
-<div class="row"><button class="primary" id="btnGen" onclick="gen()">Generate</button><button class="primary" id="btnSave" onclick="save()" disabled>Save</button><small>Generate shows a preview. Nothing is stored until you press Save.</small></div></div>
-<div id="msg"></div><div id="pv"></div></main><script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<title>IP Generation - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="pagehead"><div><h1>IP Generation</h1><p>Fill in the 3 steps, press Generate to preview, then Save.</p></div></div>
+  <div id="msg" class="msg"></div>
+  <div class="gen">
+    <section class="panel" aria-label="New facility">
+      <form id="f" autocomplete="off" novalidate>
+        <div class="step"><i>1</i>Facility</div>
+        <div class="grid2">
+          <div class="field"><label for="fac">Facility</label><select id="fac"></select></div>
+          <div class="field"><label for="num">Well number</label><input id="num" inputmode="numeric" maxlength="5" placeholder="e.g. 1000" aria-describedby="nmHint"></div>
+        </div>
+        <small class="hint" id="nmHint" aria-live="polite">Full name: <b id="nm">-</b></small>
+
+        <div class="step"><i>2</i>Network</div>
+        <div class="grid2">
+          <div class="field"><label for="gcp">GCP &amp; Ring</label><select id="gcp"></select></div>
+          <div class="field"><label for="ven">Vendor</label><select id="ven"></select></div>
+        </div>
+        <div class="rangeinfo" id="rinfo" aria-live="polite"></div>
+
+        <div class="step"><i>3</i>Who and when</div>
+        <div class="grid2">
+          <div class="field"><label for="eng">TSU PAN Engineer</label><input id="eng" list="engList" maxlength="40" placeholder="Type your name" autocomplete="off"></div>
+          <div class="field"><label for="date">Date <small>(automatic)</small></label><input id="date" type="text" readonly tabindex="-1"></div>
+        </div>
+        <div class="row" style="margin-top:14px"><button class="primary" id="btnGen" type="submit">Generate preview</button><small>Nothing is saved until you press Save.</small></div>
+      </form>
+    </section>
+
+    <section class="panel" id="pv" aria-live="polite" aria-label="Preview"></section>
+  </div>
+</main>
+<script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
 <script>
-var pv=null,busy=false,GR=[['RTU',['RTU IP-1','RTU IP-2']],['PLC',['PLC IP-1','PLC IP-2']],['RTU Internal',['RTU Internal IP-1','RTU Internal IP-2']],['HMI, Moxa, Laptop',['RTU-HMI IP','IES Moxa IP','Engg. Laptop IP']],['Gateways, mask, VLAN',['Gateway-1','Gateway-2','Subnet Mask','RTU VLAN','PLC VLAN']]];
-init('generate').then(function(){sel('#fac',CFG.facilities);sel('#gcp',Object.keys(CFG.gcps));sel('#ven',CFG.vendors);sel('#eng',CFG.engineers,'Select engineer');$('#date').value=today();clearPv()});
-function clearPv(){var n=$('#num');n.value=n.value.replace(/\D/g,'');$('#nm').textContent=$('#fac').value+'-'+(n.value||'____');pv=null;$('#btnSave').disabled=true;$('#pv').innerHTML='';$('#msg').className=''}
-function calc(recs){
-  $('#date').value=today();var name=$('#fac').value+'-'+$('#num').value.trim(),e=checkName(name,recs);if(e)return{err:e};
-  var eng=$('#eng').value;if(CFG.engineers.indexOf(eng)<0)return{err:'Select the engineer who is adding this record.'};
-  var g=$('#gcp').value,v=$('#ven').value;if(!CFG.gcps[g]||CFG.vendors.indexOf(v)<0)return{err:'Choose a valid GCP &amp; Ring and vendor.'};
-  var a=allocate(g,v,recs);if(a.full)return{err:esc(g+' / '+v)+' is FULL ('+CFG.max[v]+'/'+CFG.max[v]+'). Nothing was generated. Ask the team lead to extend the range in js/config.js.'};
-  var x=checkIps(a.ips,recs);if(x.length)return{err:x.join('<br>')};
-  return{name:name.toUpperCase(),g:g,v:v,a:a,eng:eng};
+var pv = null, busy = false;
+var GR = [['RTU', ['RTU IP-1', 'RTU IP-2']], ['PLC', ['PLC IP-1', 'PLC IP-2']], ['RTU Internal', ['RTU Internal IP-1', 'RTU Internal IP-2']],
+  ['HMI and Moxa', ['RTU-HMI IP', 'IES Moxa IP']], ['Shared: laptop, gateways, mask, VLAN', ['Engg. Laptop IP', 'Gateway-1', 'Gateway-2', 'Subnet Mask', 'RTU VLAN', 'PLC VLAN']]];
+
+init('generate').then(function () {
+  sel('#fac', CFG.facilities); sel('#gcp', Object.keys(CFG.gcps)); sel('#ven', CFG.vendors);
+  var q = new URLSearchParams(location.search);
+  if (CFG.gcps[q.get('gcp')]) $('#gcp').value = q.get('gcp');
+  if (CFG.vendors.indexOf(q.get('vendor')) >= 0) $('#ven').value = q.get('vendor');
+  $('#eng').value = actor();
+  $('#date').value = today();
+  $('#f').addEventListener('input', changed);
+  $('#f').addEventListener('change', changed);
+  $('#f').addEventListener('submit', function (e) { e.preventDefault(); gen(); });
+  changed();
+  if (!q.get('gcp')) $('#num').focus();
+});
+
+/* ---------- live feedback while typing ---------- */
+function changed() {
+  var n = $('#num'); n.value = n.value.replace(/\D/g, '');
+  var name = $('#fac').value + '-' + (n.value || '____'), hint = $('#nmHint');
+  if (!n.value) { hint.className = 'hint'; hint.innerHTML = 'Full name: <b id="nm">' + esc(name) + '</b>'; n.removeAttribute('aria-invalid'); }
+  else {
+    var e = checkName(name, S.records);
+    hint.className = 'hint ' + (e ? 'bad' : 'ok');
+    hint.innerHTML = e ? esc(name) + ': already exists' + (/trash/.test(e) ? ' (in the trash)' : '') : 'Full name: <b>' + esc(name) + '</b> &middot; available';
+    n.setAttribute('aria-invalid', e ? 'true' : 'false');
+  }
+  var g = $('#gcp').value, v = $('#ven').value, u = usage(g, v, S.records), r = u.used / u.max, c = u.used >= u.max ? 'full' : r >= CFG.warnAt ? 'warn' : '';
+  $('#rinfo').innerHTML = '<span>' + esc(g + ' / ' + v) + ': <b class="' + c + '">' + u.used + ' / ' + u.max + '</b> used</span>' +
+    '<span class="' + c + '">' + (u.next ? 'next host ' + u.next : 'FULL') + '</span><div class="bar ' + c + '"><i style="width:' + Math.round(100 * r) + '%"></i></div>';
+  if (pv && !pv.saved) clearPv();
 }
-function show(r){
-  var u=usage(r.g,r.v,S.records),ips=r.a.ips;
-  $('#pv').innerHTML='<div class="panel"><h2>Preview: '+esc(r.name)+' <small>(not saved yet)</small></h2><div class="groups">'+GR.filter(function(g){return g[1].some(function(f){return ips[f]})}).map(function(g){return'<div class="gcard"><h3>'+g[0]+'</h3>'+g[1].filter(function(f){return ips[f]}).map(function(f){return'<div><span>'+f+'</span><code>'+esc(ips[f])+'</code></div>'}).join('')+'</div>'}).join('')+'</div><div class="row"><button onclick="copyIps(this)">Copy IPs</button></div></div>';
-  var m='No duplicates found. Host number '+r.a.n+' of '+u.max+(r.a.skipped.length?'. Skipped busy numbers: '+r.a.skipped.join(', '):'')+'. Press Save to store it.';
-  if((u.used+1)/u.max>=CFG.warnAt)m+='<br><b class="warn">Warning: '+esc(r.g+' / '+r.v)+' will be '+(u.used+1)+' / '+u.max+' full.</b>';
-  msg(m,1);
+function clearPv() {
+  pv = null; clearMsg();
+  $('#pv').innerHTML = '<div class="pv-empty"><b>Preview</b><span>Fill in the form and press <b>Generate preview</b>.<br>All addresses for the new facility will appear here.</span></div>';
 }
-function copyIps(b){if(!pv)return;var t=ALLF.filter(function(f){return pv.a.ips[f]}).map(function(f){return f+'\t'+pv.a.ips[f]}).join('\n');
-  var done=function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy IPs'},1500)},old=function(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove();done()};
-  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done,old);else old()}
-function fail(){clearPv();msg('Could not read the stored data. Reload the page and try again.')}
-function gen(){if(busy)return;busy=true;var b=$('#btnGen');b.classList.add('busy');
-  DB.load().then(function(s){S=s;var r=calc(S.records);if(r.err){clearPv();return msg(r.err)}pv=r;show(r);$('#btnSave').disabled=false}).catch(fail).then(function(){busy=false;b.classList.remove('busy')})}
-function save(){if(busy||!pv)return;busy=true;var b=$('#btnSave');b.classList.add('busy');var shown=JSON.stringify(pv.a.ips);
-  DB.update(function(st){var r=calc(st.records);if(r.err)return{err:r.err};if(JSON.stringify(r.a.ips)!==shown)return{err:'CHANGED'};
-    st.records.push({id:st.seq++,name:r.name,gcp:r.g,vendor:r.v,engineer:r.eng,date:today(),ips:r.a.ips,del:false});logTo(st,r.eng,'Created',r.name);return{name:r.name}})
-  .then(function(res){
-    if(res.err==='CHANGED')return DB.load().then(function(s){S=s;var r=calc(S.records);if(r.err){clearPv();return msg(r.err)}pv=r;show(r);$('#btnSave').disabled=false;msg('The numbers changed since your preview. Check the new preview and press Save again.')});
-    if(res.err){clearPv();return msg(res.err)}
-    S=res.s;$('#num').value='';clearPv();msg('Saved '+esc(res.name)+'. See it in the Worksheet.',1)})
-  .catch(fail).then(function(){busy=false;b.classList.remove('busy')})}
-</script></body></html>
+
+/* ---------- generation (pure calculation on the given records) ---------- */
+function calc(recs) {
+  var num = $('#num').value.trim();
+  if (!num) return { err: 'Type the well number (1 to 5 digits).', focus: '#num' };
+  var name = ($('#fac').value + '-' + num).toUpperCase(), e = checkName(name, recs);
+  if (e) return { err: e, focus: '#num' };
+  var g = $('#gcp').value, v = $('#ven').value;
+  if (!configured(g, v)) return { err: 'Choose a valid GCP &amp; Ring and vendor.' };
+  var eng = cleanPerson($('#eng').value), pe = checkPerson(eng);
+  if (pe) return { err: 'TSU PAN Engineer: ' + esc(pe), focus: '#eng' };
+  var a = allocate(g, v, recs);
+  if (a.full) return { err: '<b>' + esc(g + ' / ' + v) + ' is full</b> (' + CFG.max[v] + ' of ' + CFG.max[v] + ' host numbers used). Nothing was generated. Choose another GCP &amp; Ring, or ask the team lead to extend the range.' };
+  var x = checkIps(a.ips, recs);
+  if (x.length) return { err: x.join('<br>') };
+  return { name: name, g: g, v: v, a: a, eng: eng, date: today() };
+}
+
+function show(r, note) {
+  var u = usage(r.g, r.v, S.records), ips = r.a.ips, after = u.used + (r.saved ? 0 : 1);
+  var notes = [];
+  if (note) notes.push(note);
+  if (r.a.skipped.length) notes.push('Host numbers ' + r.a.skipped.join(', ') + ' are busy (used or reserved), so host ' + r.a.n + ' was chosen.');
+  if (after / u.max >= CFG.warnAt) notes.push('<b class="warn">' + esc(r.g + ' / ' + r.v) + ' will be ' + after + ' of ' + u.max + ' used' + (after >= u.max ? ' (full after this record)' : '') + '.</b>');
+  $('#pv').innerHTML =
+    '<div class="pvhead"><div><span class="nm">' + esc(r.name) + '</span>' + (r.saved ? '<span class="badge ok">Saved</span>' : '<span class="badge">Not saved yet</span>') +
+    '<div class="mut" style="font-size:.82rem;margin-top:2px">' + esc(r.g + ' / ' + r.v) + ' &middot; host ' + r.a.n + ' of ' + u.max + ' &middot; ' + esc(r.eng) + ' &middot; ' + esc(r.date) + '</div></div></div>' +
+    (notes.length ? '<div class="note ' + (/warn/.test(notes.join()) ? 'warn' : 'info') + '" style="margin:0 0 10px">' + notes.join('<br>') + '</div>' : '') +
+    '<div class="groups">' + GR.filter(function (g) { return g[1].some(function (f) { return ips[f]; }); }).map(function (g, i) {
+      return '<div class="gcard' + (i === 4 ? ' shared' : '') + '"><h3>' + g[0] + '</h3>' + g[1].filter(function (f) { return ips[f]; }).map(function (f) { return '<div><span>' + f + '</span><code>' + esc(ips[f]) + '</code></div>'; }).join('') + '</div>';
+    }).join('') + '</div>' +
+    '<div class="pvfoot">' + (r.saved
+      ? '<button class="primary" type="button" id="btnNew">Create another facility</button><button type="button" id="btnCopy">Copy IPs</button><a class="btn ghost" href="worksheet.html">Open worksheet</a>'
+      : '<button class="primary" type="button" id="btnSave">Save ' + esc(r.name) + '</button><button type="button" id="btnCopy">Copy IPs</button><small>Check the addresses, then save.</small>') + '</div>';
+  $('#btnCopy').onclick = function () { copyIps(this); };
+  if (r.saved) $('#btnNew').onclick = function () { $('#num').value = ''; pv = null; changed(); clearPv(); $('#num').focus(); };
+  else $('#btnSave').onclick = save;
+}
+
+function copyIps(b) {
+  if (!pv) return;
+  var t = ['Facility Name\t' + pv.name, 'GCP & Ring\t' + pv.g, 'Vendor\t' + pv.v].concat(ALLF.filter(function (f) { return pv.a.ips[f]; }).map(function (f) { return f + '\t' + pv.a.ips[f]; })).join('\n');
+  var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy IPs'; }, 1500); };
+  var old = function () { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); } catch (e) {} a.remove(); done(); };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, old); else old();
+}
+function fail() { clearPv(); msg('Could not read the stored data. Reload the page and try again.'); }
+
+function gen() {
+  if (busy) return; busy = true;
+  var b = $('#btnGen'); b.classList.add('busy');
+  DB.load().then(function (s) {
+    S = s; changed();
+    var r = calc(S.records);
+    if (r.err) { clearPv(); msg(r.err); if (r.focus) $(r.focus).focus(); return; }
+    clearMsg(); pv = r; show(r);
+  }).catch(fail).then(function () { busy = false; b.classList.remove('busy'); });
+}
+
+// Save recomputes inside one transaction; if the result differs from the preview, nothing is saved (like HTTP 409)
+function save() {
+  if (busy || !pv || pv.saved) return; busy = true;
+  var b = $('#btnSave'); b.classList.add('busy');
+  var shown = JSON.stringify(pv.a.ips), shownName = pv.name;
+  DB.update(function (st) {
+    var r = calc(st.records);
+    if (r.err) return { err: r.err };
+    if (JSON.stringify(r.a.ips) !== shown || r.name !== shownName) return { err: 'CHANGED' };
+    var now = stamp();
+    st.records.push({ id: st.seq++, name: r.name, gcp: r.g, vendor: r.v, engineer: r.eng, date: r.date, ips: r.a.ips, del: false, created: now, upd: now });
+    logTo(st, r.eng, 'Created', r.name, r.g + ' / ' + r.v + ', host ' + r.a.n + ', RTU IP-1 ' + r.a.ips['RTU IP-1']);
+    return { r: r };
+  }).then(function (res) {
+    if (res.err === 'CHANGED') return DB.load().then(function (s) {
+      S = s; var r = calc(S.records);
+      if (r.err) { clearPv(); return msg(r.err); }
+      pv = r; show(r, '<b>The addresses changed since your preview</b> (another change was saved meanwhile). Check the new preview and press Save again.');
+    });
+    if (res.err) { clearPv(); return msg(res.err); }
+    S = res.s; setActor(res.r.eng); fillEngineerList();
+    pv = res.r; pv.saved = true; show(pv); changed();
+    msg('Saved <b>' + esc(pv.name) + '</b>. Its addresses are now reserved.', 1);
+  }).catch(fail).then(function () { busy = false; var x = $('#btnSave'); if (x) x.classList.remove('busy'); });
+}
+</script>
+</body>
+</html>

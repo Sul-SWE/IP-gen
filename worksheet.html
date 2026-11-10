@@ -1,34 +1,207 @@
-<!doctype html><html lang="en" translate="no" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"><meta name="theme-color" content="#124a2d"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>IP Generator and Tracker</title><link rel="stylesheet" href="css/style.css"></head><body><main><h1>Worksheet</h1>
-<div class="panel"><div class="row" style="margin:0"><div><label for="q">Filter</label><input id="q" oninput="draw()" placeholder="Name, IP, engineer..."></div>
-<label style="display:flex;gap:.4rem;align-items:center"><input type="checkbox" id="sd" style="width:auto" onchange="draw()">Show deleted</label>
-<button class="primary" onclick="exp()">Export Excel</button><label class="btn" for="impf">Import Excel</label><input id="impf" type="file" accept=".xlsx,.xls" hidden onchange="imp(this.files[0]);this.value=''"></div></div>
-<div id="msg"></div><div class="tw"><table id="t"><tr><td>Loading...</td></tr></table></div></main>
-<script src="lib/xlsx.full.min.js"></script><script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<title>Worksheet - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="pagehead">
+    <div><h1>Worksheet</h1><p>All records in one read-only table. Export is the backup; import only adds new rows.</p></div>
+    <div class="qa">
+      <button class="primary" id="btnExp" type="button" title="Download all active records as an Excel file">Export Excel</button>
+      <label class="btn" for="impf" id="btnImp" tabindex="0" role="button">Import Excel</label>
+      <input id="impf" type="file" accept=".xlsx,.xls" hidden>
+      <button id="btnUndo" type="button" disabled>Undo last import</button>
+    </div>
+  </div>
+  <div class="panel" style="padding:10px 14px">
+    <div class="toolbar">
+      <div class="field q"><label for="q">Filter</label><input id="q" type="search" placeholder="Name, IP, GCP, vendor, engineer, date..." autocomplete="off"></div>
+      <label class="check" style="margin-bottom:8px"><input type="checkbox" id="sd">Show deleted (trash)</label>
+      <span class="sp"></span><small id="count" aria-live="polite" style="margin-bottom:8px"></small>
+    </div>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div class="tw"><table id="t"><tbody><tr><td><div class="skel" style="width:60%"></div><div class="skel"></div></td></tr></tbody></table></div>
+  <div class="tfoot"><span>Export contains active records only. Deleted rows are shown struck through.</span><span id="more"></span></div>
+</main>
+<script src="lib/xlsx.full.min.js"></script>
+<script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
 <script>
-init('worksheet').then(draw);
-function draw(){var q=$('#q').value.toLowerCase(),sd=$('#sd').checked,cols=Object.keys(rowOf({ips:{}})),rows=S.records.filter(function(r){return sd||!r.del}).map(function(r){return{r:r,o:rowOf(r)}}).filter(function(x){return!q||Object.keys(x.o).map(function(k){return x.o[k]}).join(' ').toLowerCase().indexOf(q)>=0});
-  $('#t').innerHTML='<tr><th class="rn"></th>'+cols.map(function(c){return'<th>'+esc(c)+'</th>'}).join('')+'</tr>'+(rows.map(function(x,i){return'<tr'+(x.r.del?' class="del"':'')+'><td class="rn">'+(i+1)+'</td>'+cols.map(function(c){return'<td>'+esc(x.o[c])+'</td>'}).join('')+'</tr>'}).join('')||'<tr><td>No records yet. Use IP Generation or import a sheet.</td></tr>');
-  msg(rows.length+' record(s) shown.',1)}
-function exp(){var ws=XLSX.utils.json_to_sheet(S.records.filter(function(r){return!r.del}).map(rowOf)),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'IPs');XLSX.writeFile(wb,'IP-Generator-'+today()+'.xlsx')}
-function normDate(v){if(typeof v==='number'&&v>20000&&v<80000)return new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10);return String(v==null?'':v).trim().slice(0,20)}
-function okIp(s){var m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);return!!m&&m.slice(1).every(function(n){return+n<=255})}
-function imp(f){if(!f)return;
-  if(!/\.(xlsx|xls)$/i.test(f.name||''))return msg('Please choose an .xlsx or .xls file.');
-  if(f.size>5*1024*1024)return msg('This file is larger than 5 MB. Nothing was imported.');
-  f.arrayBuffer().then(function(b){var wb=XLSX.read(new Uint8Array(b),{type:'array'}),rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
-    if(!rows.length)return msg('No rows were found in this file. Nothing was imported.');
-    if(!('Facility Name' in rows[0])||!('RTU IP-1' in rows[0]))return msg('The sheet needs the same column names as the exported file (Facility Name, GCP &amp; Ring, Vendor, RTU IP-1, ...). Nothing was imported.');
-    if(rows.length>5000)return msg('More than 5000 rows. Nothing was imported.');
-    return DB.update(function(st){var ok=0,bad=[];
-      rows.forEach(function(x,i){var name=String(x['Facility Name']).trim().toUpperCase().slice(0,40),ph=/^(USED|UNKNOWN|-|)$/.test(name),ips={},e=[];
-        ALLF.forEach(function(k){if(x[k]!==''&&x[k]!=null)ips[k]=String(x[k]).trim().slice(0,30)});
-        if(!ph){var n=checkName(name,st.records);if(n)e.push(n)}
-        ALLF.slice(0,11).forEach(function(k){if(ips[k]&&!okIp(ips[k]))e.push(h(k)+' is not a valid IP')});
-        e=e.concat(checkIps(ips,st.records));if(!Object.keys(ips).length)e.push('no IPs in this row');
-        if(e.length>3)e=e.slice(0,2).concat('and '+(e.length-2)+' more problems');
-        if(e.length)bad.push('Row '+(i+2)+' ('+esc(name||'no name')+'): '+e.join('; '));
-        else{st.records.push({id:st.seq++,name:name||'unknown',gcp:String(x['GCP & Ring']).trim().slice(0,40),vendor:String(x['Vendor']).trim().slice(0,30),engineer:String(x['TSU PAN Engineer']).trim().slice(0,40),date:normDate(x['Date']),ips:ips,del:false});ok++}});
-      logTo(st,'Import','Imported',ok+' row(s) from '+String(f.name).slice(0,60));return{ok:ok,bad:bad}})
-    .then(function(res){S=res.s;draw();msg('Imported '+res.ok+' row(s). Skipped '+res.bad.length+'.'+(res.bad.length?'<br>'+res.bad.slice(0,15).join('<br>'):''),!res.bad.length)})})
-  .catch(function(){msg('This file could not be read. Use a valid Excel file. Nothing was imported.')})}
-</script></body></html>
+var MAX_BYTES = 5 * 1024 * 1024, MAX_ROWS = 5000, limit = 500;
+
+init('worksheet').then(function () {
+  $('#q').oninput = function () { limit = 500; draw(); };
+  $('#sd').onchange = draw;
+  $('#btnExp').onclick = exp;
+  $('#btnImp').onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#impf').click(); } };
+  $('#impf').onchange = function () { var f = this.files[0]; this.value = ''; if (f) imp(f); };
+  $('#btnUndo').onclick = undo;
+  draw();
+});
+
+/* ---------- table ---------- */
+function draw() {
+  var q = $('#q').value.trim().toLowerCase(), sd = $('#sd').checked;
+  var rows = S.records.filter(function (r) { return sd || !r.del; }).map(function (r) { return { r: r, o: rowOf(r) }; })
+    .filter(function (x) { return !q || COLS.map(function (k) { return x.o[k]; }).join(' ').toLowerCase().indexOf(q) >= 0; });
+  var act = S.records.filter(function (r) { return !r.del; }).length;
+  $('#count').textContent = rows.length + ' row(s) shown · ' + act + ' active' + (S.records.length - act ? ', ' + (S.records.length - act) + ' in trash' : '');
+  var ipCols = IPF.concat(['Subnet Mask']);
+  $('#t').innerHTML = '<thead><tr><th class="rn" aria-label="Row"></th>' + COLS.map(function (c, i) { return '<th' + (i === 0 ? ' class="nm"' : '') + '>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    (rows.slice(0, limit).map(function (x, i) {
+      return '<tr' + (x.r.del ? ' class="del" title="In the trash: name and IPs are still reserved"' : '') + '><td class="rn">' + (i + 1) + '</td>' +
+        COLS.map(function (c, j) { return '<td' + (j === 0 ? ' class="nm"' : ipCols.indexOf(c) >= 0 ? ' class="ip"' : '') + '>' + esc(x.o[c]) + '</td>'; }).join('') + '</tr>';
+    }).join('') || '<tr><td class="rn"></td><td colspan="' + COLS.length + '" class="empty" style="text-align:left">' + (q ? 'No rows match the filter.' : 'No records yet. Use IP Generation, or import a sheet.') + '</td></tr>') + '</tbody>';
+  $('#more').innerHTML = rows.length > limit ? '<button class="sm" id="moreBtn">Show all ' + rows.length + ' rows</button>' : '';
+  if (rows.length > limit) $('#moreBtn').onclick = function () { limit = Infinity; draw(); };
+  var u = undoState();
+  $('#btnUndo').disabled = !S.lastImport;
+  $('#btnUndo').title = S.lastImport ? 'Remove the ' + S.lastImport.ids.length + ' row(s) added from ' + S.lastImport.file + ' on ' + S.lastImport.at + (u.ok ? '' : ' (' + u.why + ')') : 'No import to undo';
+}
+
+/* ---------- export ---------- */
+function exp() {
+  var act = S.records.filter(function (r) { return !r.del; });
+  if (!act.length) return msg('There are no active records to export.', 'warn');
+  var ws = XLSX.utils.json_to_sheet(act.map(rowOf), { header: COLS });
+  ws['!cols'] = COLS.map(function (c) { return { wch: Math.max(c.length + 2, IPF.indexOf(c) >= 0 ? 15 : 12) }; });
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: act.length, c: COLS.length - 1 } }) };
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'IPs');
+  var name = 'IP-Generator-' + today() + '.xlsx';
+  XLSX.writeFile(wb, name);
+  msg('Exported ' + act.length + ' active record(s) to <b>' + esc(name) + '</b>. Keep it as a backup.', 1);
+}
+
+/* ---------- import, step 1: read and check, write nothing ---------- */
+var HEAD_ALIASES = { name: 'Facility Name', facility: 'Facility Name', gcp: 'GCP & Ring', engineer: 'TSU PAN Engineer', tsupanengineer: 'TSU PAN Engineer' };
+function headKey(s) { return String(s == null ? '' : s).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, ''); }
+function mapHeaders(head) {
+  var known = {}; COLS.forEach(function (c) { known[headKey(c)] = c; });
+  for (var k in HEAD_ALIASES) known[k] = known[k] || HEAD_ALIASES[k];
+  var map = {}, seen = {};
+  head.forEach(function (hd, i) { var c = known[headKey(hd)]; if (c && !seen[c]) { map[i] = c; seen[c] = 1; } });
+  return { map: map, seen: seen };
+}
+function blank(row) { return row.every(function (v) { return v === '' || v == null || String(v).trim() === ''; }); }
+
+// checks every row against the given records and against earlier rows of the same file
+function checkAll(rows, recs) {
+  var idx = makeIndex(recs);
+  return rows.map(function (x) {
+    var res = checkImportRow(x.o, idx);
+    res.line = x.line;
+    if (res.rec) indexAdd(idx, res.rec);
+    return res;
+  });
+}
+
+function imp(f) {
+  if (!/\.(xlsx|xls)$/i.test(f.name || '')) return msg('Please choose an Excel file (.xlsx or .xls). Nothing was imported.');
+  if (f.size > MAX_BYTES) return msg('This file is larger than 5 MB. Nothing was imported.');
+  if (!f.size) return msg('This file is empty. Nothing was imported.');
+  msg('Reading <b>' + esc(f.name) + '</b>...', 'info');
+  f.arrayBuffer().then(function (b) {
+    var wb = XLSX.read(new Uint8Array(b), { type: 'array', sheetRows: MAX_ROWS + 2 });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    if (!ws) return msg('The file has no sheets. Nothing was imported.');
+    var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: false });
+    if (!raw.length) return msg('The first sheet is empty. Nothing was imported.');
+    var hm = mapHeaders(raw[0]);
+    var missing = ['Facility Name', 'RTU IP-1'].filter(function (c) { return !hm.seen[c]; });
+    if (missing.length) return msg('The first row of the first sheet must contain the column names. Missing: <b>' + missing.map(esc).join(', ') + '</b>. Use the same column names as an exported file. Nothing was imported.');
+    var rows = [];
+    for (var i = 1; i < raw.length; i++) {
+      if (blank(raw[i])) continue;
+      var o = {}; for (var c in hm.map) o[hm.map[c]] = raw[i][c];
+      rows.push({ line: i + 1, o: o });
+    }
+    if (!rows.length) return msg('No data rows were found under the column names. Nothing was imported.');
+    if (rows.length > MAX_ROWS || raw.length > MAX_ROWS + 1) return msg('The sheet has more than ' + MAX_ROWS + ' rows. Split it into smaller files. Nothing was imported.');
+    return DB.load().then(function (s) { S = s; draw(); preview(f.name, rows, Object.keys(hm.seen).length); });
+  }).catch(function () { msg('This file could not be read. It may be damaged or not a real Excel file. Nothing was imported.'); });
+}
+
+/* ---------- import, step 2: preview, then confirm ---------- */
+function preview(file, rows, nCols) {
+  var res = checkAll(rows, S.records);
+  var add = res.filter(function (r) { return r.rec; }), skip = res.filter(function (r) { return !r.rec; }), warn = add.filter(function (r) { return r.warnings.length; });
+  clearMsg();
+  var issues = skip.concat(warn).sort(function (a, b) { return a.line - b.line; });
+  var list = function (a) { return a.length ? '<ul>' + a.slice(0, 4).map(function (e) { return '<li>' + e + '</li>'; }).join('') + (a.length > 4 ? '<li>and ' + (a.length - 4) + ' more</li>' : '') + '</ul>' : ''; };
+  var body = '<p class="mut" style="font-size:.84rem"><b>' + esc(file) + '</b> &middot; ' + rows.length + ' data row(s) &middot; ' + nCols + ' known column(s). Nothing has been saved yet.</p>' +
+    '<div class="sum"><div class="a"><small>Will be added</small><b>' + add.length + '</b></div><div class="s"><small>Will be skipped</small><b>' + skip.length + '</b></div><div class="w"><small>Added with notes</small><b>' + warn.length + '</b></div></div>' +
+    (issues.length ? '<div class="imp"><div class="tw"><table><thead><tr><th>Row</th><th>Facility</th><th>Result</th><th>Reason</th></tr></thead><tbody>' +
+      issues.map(function (r) {
+        return '<tr><td>' + r.line + '</td><td>' + esc(r.name || '(empty)') + '</td><td class="st">' + (r.rec ? '<span class="chip w">Add, note</span>' : '<span class="chip r">Skip</span>') + '</td><td>' + list(r.rec ? r.warnings : r.errors) + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>' : '<div class="note info">Every row passed all checks.</div>') +
+    '<div class="note">Import only <b>adds</b> new rows. Existing records are never changed. Rows that repeat a name or an IP of any record (active or in the trash), or of an earlier row in this file, are skipped.</div>';
+  ask({ title: 'Import preview', body: body, wide: true, name: true, ok: add.length ? 'Import ' + add.length + ' row(s)' : 'Nothing to import',
+    check: function () { return add.length ? '' : 'No row can be imported. Fix the file and try again.'; } })
+  .then(function (who) {
+    if (!who) return msg('Import cancelled. Nothing was imported.', 'info');
+    var expected = add.map(function (r) { return r.line + ':' + r.rec.name; }).join('|');
+    DB.update(function (st) {
+      var again = checkAll(rows, st.records), ok = again.filter(function (r) { return r.rec; });
+      if (ok.map(function (r) { return r.line + ':' + r.rec.name; }).join('|') !== expected) return { err: 'The stored data changed after the preview (another change was saved). Nothing was imported. Import the file again to see a new preview.' };
+      var now = stamp(), batch = 'imp-' + Date.now(), ids = [];
+      ok.forEach(function (r) {
+        var rec = r.rec; rec.id = st.seq++; rec.del = false; rec.created = now; rec.upd = now; rec.batch = batch;
+        st.records.push(rec); ids.push(rec.id);
+      });
+      st.lastImport = { batch: batch, ids: ids, file: String(file).slice(0, 80), at: now, who: who.name };
+      logTo(st, who.name, 'Imported', ok.length + ' row(s)', 'From ' + String(file).slice(0, 80) + '; ' + (again.length - ok.length) + ' row(s) skipped');
+      return { ok: ok.length, bad: again.filter(function (r) { return !r.rec; }) };
+    }).then(function (r) {
+      if (r.err) { msg(r.err); return; }
+      S = r.s; fillEngineerList(); draw();
+      msg('Imported <b>' + r.ok + '</b> row(s) from ' + esc(file) + '. Skipped ' + r.bad.length + '.' +
+        (r.bad.length ? '<ul>' + r.bad.slice(0, 15).map(function (b) { return '<li>Row ' + b.line + ' (' + esc(b.name || 'no name') + '): ' + b.errors.slice(0, 2).join('; ') + (b.errors.length > 2 ? '; and ' + (b.errors.length - 2) + ' more' : '') + '</li>'; }).join('') + (r.bad.length > 15 ? '<li>and ' + (r.bad.length - 15) + ' more rows</li>' : '') + '</ul>' : '') +
+        ' You can undo this import while none of its rows has been changed.', r.bad.length ? 'warn' : 1);
+    }).catch(function () { msg('Could not save the import. Nothing was imported.'); });
+  });
+}
+
+/* ---------- undo last import ---------- */
+function undoState(st) {
+  st = st || S; var li = st.lastImport;
+  if (!li) return { ok: false, why: 'no import to undo' };
+  var byId = {}; st.records.forEach(function (r) { byId[r.id] = r; });
+  var gone = 0, changed = [];
+  li.ids.forEach(function (id) { var r = byId[id]; if (!r) gone++; else if (r.del || r.upd !== r.created) changed.push(r.name); });
+  if (gone) return { ok: false, why: gone + ' of its rows were deleted forever' };
+  if (changed.length) return { ok: false, why: 'these rows were changed since: ' + changed.slice(0, 5).join(', ') + (changed.length > 5 ? ' +' + (changed.length - 5) : '') };
+  return { ok: true };
+}
+function undo() {
+  var li = S.lastImport; if (!li) return;
+  var u = undoState();
+  if (!u.ok) return msg('The last import cannot be undone: ' + esc(u.why) + '. Undo only works while every imported row is unchanged.', 'warn');
+  ask({ title: 'Undo the last import?', danger: true, ok: 'Remove ' + li.ids.length + ' row(s)', name: true,
+    body: '<p>This removes exactly the <b>' + li.ids.length + '</b> row(s) added from <b>' + esc(li.file) + '</b> on ' + esc(li.at) + ' by ' + esc(li.who) + '. Their names and IPs become free. No other record is touched.</p>' })
+  .then(function (who) {
+    if (!who) return;
+    DB.update(function (st) {
+      if (!st.lastImport || st.lastImport.batch !== li.batch) return { err: 'Another import happened meanwhile. Nothing was removed.' };
+      var v = undoState(st); if (!v.ok) return { err: 'The last import cannot be undone: ' + esc(v.why) + '.' };
+      var set = {}; li.ids.forEach(function (id) { set[id] = 1; });
+      st.records = st.records.filter(function (r) { return !set[r.id]; });
+      st.lastImport = null;
+      logTo(st, who.name, 'Import undone', li.ids.length + ' row(s)', 'Removed the rows imported from ' + li.file + ' on ' + li.at);
+      return {};
+    }).then(function (r) {
+      if (r.err) { msg(r.err); return DB.load().then(function (s) { S = s; draw(); }); }
+      S = r.s; draw(); msg('Removed the ' + li.ids.length + ' row(s) of the last import.', 1);
+    }).catch(function () { msg('Could not undo the import. Nothing was removed.'); });
+  });
+}
+</script>
+</body>
+</html>

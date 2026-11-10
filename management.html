@@ -1,55 +1,282 @@
-<!doctype html><html lang="en" translate="no" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"><meta name="theme-color" content="#124a2d"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>IP Generator and Tracker</title><link rel="stylesheet" href="css/style.css"></head><body><main><h1>IP Management</h1>
-<div class="panel"><div class="grid"><div><label for="who">Acting engineer (recorded in the log)</label><select id="who"></select></div>
-<div><label for="crit">Type</label><select id="crit"></select></div><div><label for="q">Criteria</label><input id="q" oninput="draw()" placeholder="Search text"></div></div>
-<div class="row tabs"><button id="t_act" onclick="tab('act')">Records</button><button id="t_trash" onclick="tab('trash')">Trash</button><button id="t_log" onclick="tab('log')">Change log</button></div></div>
-<div id="msg"></div>
-<div id="ed" class="panel" hidden><b>Modify <span id="edn"></span></b><div class="grid" style="margin-top:.6rem">
-<div><label for="e_fac">Facility</label><select id="e_fac"></select></div><div><label for="e_num">Well number</label><input id="e_num" maxlength="5"></div>
-<div><label for="e_gcp">GCP &amp; Ring</label><select id="e_gcp"></select></div><div><label for="e_ven">Vendor</label><select id="e_ven"></select></div>
-<div><label for="e_eng">Engineer on record</label><select id="e_eng"></select></div><div><label for="e_date">Date (YYYY-MM-DD)</label><input id="e_date" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD"></div></div>
-<p>Changing GCP &amp; Ring or Vendor creates new IPs and releases the old ones.</p><div class="row"><button class="primary" onclick="applyEdit()">Save changes</button><button onclick="$('#ed').hidden=true">Cancel</button></div></div>
-<div class="tw"><table id="t" class="stack"><tr><td>Loading...</td></tr></table></div></main><script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">
+<title>IP Management - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="pagehead">
+    <div><h1>IP Management</h1><p>Search, modify, delete and restore records. Every change is written to the change log with your name.</p></div>
+    <div class="tabs" role="tablist" aria-label="Lists">
+      <button type="button" role="tab" id="t_act">Records</button><button type="button" role="tab" id="t_trash">Trash</button><button type="button" role="tab" id="t_log">Change log</button>
+    </div>
+  </div>
+  <div class="panel" style="padding:10px 14px">
+    <div class="toolbar">
+      <div class="field q"><label for="q">Search</label><input id="q" type="search" placeholder="Name, IP, GCP, vendor, engineer..." autocomplete="off"></div>
+      <div class="field s" id="critBox"><label for="crit">Search in</label><select id="crit"></select></div>
+      <span class="sp"></span><small id="count" aria-live="polite"></small>
+    </div>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div class="tw"><table id="t"><tbody><tr><td><div class="skel" style="width:60%"></div><div class="skel"></div></td></tr></tbody></table></div>
+  <div class="tfoot"><span id="tnote"></span><span id="more"></span></div>
+</main>
+<script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
 <script>
-var cur='act',eid=null,GONE='That record no longer exists (it was changed elsewhere). The list was refreshed.';
-init('management').then(function(){sel('#who',CFG.engineers,'Select acting engineer');sel('#crit',['Name','GCP & Ring','Vendor','Engineer','IP']);tab(location.hash==='#log'?'log':'act')});
-function tab(x){cur=x;['act','trash','log'].forEach(function(k){$('#t_'+k).className=k===x?'on':''});$('#ed').hidden=true;draw()}
-function who(){var w=$('#who').value;if(!w)msg('Select the acting engineer first.');return w}
-function draw(){
-  var na=S.records.filter(function(r){return!r.del}).length;$('#t_act').textContent='Records ('+na+')';$('#t_trash').textContent='Trash ('+(S.records.length-na)+')';$('#t_log').textContent='Change log ('+S.log.length+')';
-  if(cur==='log'){$('#t').className='';$('#t').innerHTML='<tr><th>Time</th><th>Engineer</th><th>Action</th><th>Facility</th></tr>'+(S.log.map(function(l){return'<tr><td>'+esc(l.t)+'</td><td>'+esc(l.who)+'</td><td>'+esc(l.act)+'</td><td>'+esc(l.name)+'</td></tr>'}).join('')||'<tr><td colspan="4">No changes recorded yet.</td></tr>');return}
-  $('#t').className='stack';
-  var q=$('#q').value.toLowerCase(),c=$('#crit').value,rows=S.records.filter(function(r){return!!r.del===(cur==='trash')}).filter(function(r){var m={'Name':r.name,'GCP & Ring':r.gcp,'Vendor':r.vendor,'Engineer':r.engineer,'IP':Object.keys(r.ips).map(function(k){return r.ips[k]}).join(' ')};return!q||String(m[c]).toLowerCase().indexOf(q)>=0});
-  $('#t').innerHTML='<tr class="hd"><th>Facility Name</th><th>GCP &amp; Ring</th><th>Vendor</th><th>Date</th><th>Engineer</th><th>RTU IP-1</th><th>PLC IP-1</th><th></th></tr>'+(rows.map(function(r){
-    return'<tr><td data-l="Facility">'+esc(r.name)+'</td><td data-l="GCP &amp; Ring">'+esc(r.gcp)+'</td><td data-l="Vendor">'+esc(r.vendor)+'</td><td data-l="Date">'+esc(r.date)+'</td><td data-l="Engineer">'+esc(r.engineer)+'</td><td data-l="RTU IP-1">'+esc(r.ips['RTU IP-1'])+'</td><td data-l="PLC IP-1">'+esc(r.ips['PLC IP-1'])+'</td><td>'+(cur==='act'?'<button class="sm" onclick="edit('+(+r.id)+')">Modify</button> <button class="sm danger" onclick="del('+(+r.id)+')">Delete</button>':'<button class="sm" onclick="restore('+(+r.id)+')">Restore</button> <button class="sm danger" onclick="purge('+(+r.id)+')">Delete forever</button>')+'</td></tr>'}).join('')||'<tr><td colspan="8">Nothing here.</td></tr>');
+var cur = 'act', open = {}, logLimit = 100, recLimit = 100;
+var GONE = 'That record was changed or removed elsewhere, so nothing was done. The list has been refreshed.';
+var CRIT = ['All fields', 'Name', 'GCP & Ring', 'Vendor', 'Engineer', 'IP'];
+
+init('management').then(function () {
+  sel('#crit', CRIT);
+  ['act', 'trash', 'log'].forEach(function (k) { $('#t_' + k).onclick = function () { tab(k); }; });
+  $('#q').oninput = function () { recLimit = 100; draw(); }; $('#crit').onchange = draw;
+  $('#t').addEventListener('click', onTableClick);
+  tab(location.hash === '#log' ? 'log' : location.hash === '#trash' ? 'trash' : 'act');
+});
+window.addEventListener('hashchange', function () { if (S) tab(location.hash === '#log' ? 'log' : location.hash === '#trash' ? 'trash' : 'act'); });
+
+function tab(x) {
+  cur = x; open = {}; logLimit = 100; recLimit = 100;
+  ['act', 'trash', 'log'].forEach(function (k) { var b = $('#t_' + k); b.className = k === x ? 'on' : ''; b.setAttribute('aria-selected', k === x); });
+  $('#critBox').hidden = x === 'log';
+  $('#q').placeholder = x === 'log' ? 'Engineer, action, facility, details...' : 'Name, IP, GCP, vendor, engineer...';
+  history.replaceState(null, '', x === 'act' ? location.pathname : '#' + x);
+  draw();
 }
-function get(id){return S.records.filter(function(r){return r.id===id})[0]}
-function find(st,id){return st.records.filter(function(r){return r.id===id})[0]}
-/* every change runs inside one storage transaction on the newest data, so another open tab can never be overwritten */
-function run(fn,okf){return DB.update(fn).then(function(res){if(res.err){msg(res.err);return DB.load().then(function(s){S=s;draw()})}S=res.s;draw();msg(okf(res),1)}).catch(function(){msg('Could not complete the action. Reload the page and try again.')})}
-function edit(id){if(!who())return;var r=get(id);if(!r)return;eid=id;$('#edn').textContent=r.name;var m=/^([A-Z]{4})-(\d{1,5})$/i.exec(r.name),f=m?m[1].toUpperCase():'';
-  sel('#e_fac',CFG.facilities.concat(m&&CFG.facilities.indexOf(f)<0?[f]:[]),m?null:'(keep current name)');$('#e_fac').value=f;$('#e_num').value=m?m[2]:'';
-  sel('#e_gcp',Object.keys(CFG.gcps).concat(CFG.gcps[r.gcp]?[]:[r.gcp]));$('#e_gcp').value=r.gcp;
-  sel('#e_ven',CFG.vendors.concat(CFG.vendors.indexOf(r.vendor)<0?[r.vendor]:[]));$('#e_ven').value=r.vendor;
-  sel('#e_eng',CFG.engineers.concat(r.engineer&&CFG.engineers.indexOf(r.engineer)<0?[r.engineer]:[]),r.engineer?null:'(none)');$('#e_eng').value=r.engineer||'';
-  $('#e_date').value=r.date||'';$('#ed').hidden=false;$('#ed').scrollIntoView({behavior:'smooth'})}
-function applyEdit(){var w=who();if(!w)return;var r0=get(eid);if(!r0)return msg(GONE);
-  var fac=$('#e_fac').value,num=$('#e_num').value.trim().replace(/\D/g,''),g=$('#e_gcp').value,v=$('#e_ven').value,en=$('#e_eng').value,dt=$('#e_date').value.trim(),std=/^[A-Z]{4}-\d{1,5}$/i.test(r0.name),name=r0.name,rename=!!(fac||num||std);
-  if(rename){name=(fac+'-'+num).toUpperCase();var e=checkName(name,S.records,eid);if(e)return msg(e)}
-  if(!en&&r0.engineer)return msg('Select the engineer on record.');
-  if(dt!==r0.date&&!isIso(dt))return msg('The date must look like 2026-11-04.');
-  var regen=g!==r0.gcp||v!==r0.vendor;
-  if(regen){if(!CFG.gcps[g]||CFG.vendors.indexOf(v)<0)return msg('This GCP &amp; Ring or vendor is not configured, so new IPs cannot be generated.');
-    var a0=allocate(g,v,S.records,eid);if(a0.full)return msg(esc(g+' / '+v)+' is FULL. Nothing was changed.');
-    if(!confirm('This creates new IPs (RTU IP-1 '+a0.ips['RTU IP-1']+') and releases the old ones. Continue?'))return}
-  run(function(st){var x=find(st,eid);if(!x)return{err:GONE};
-    if(rename&&name!==x.name){var e2=checkName(name,st.records,eid);if(e2)return{err:e2}}
-    if(regen){var a=allocate(g,v,st.records,eid);if(a.full)return{err:esc(g+' / '+v)+' is FULL. Nothing was changed.'};x.ips=a.ips;x.gcp=g;x.vendor=v}
-    var old=x.name;x.name=name;x.engineer=en;x.date=dt;logTo(st,w,'Modified',old+(old!==name?' -> '+name:''));return{}},
-    function(){$('#ed').hidden=true;return'Changes saved.'})}
-function del(id){var w=who();if(!w)return;var r=get(id);if(!r)return;if(!confirm('Move '+r.name+' to the trash? Its IPs stay reserved.'))return;
-  run(function(st){var x=find(st,id);if(!x)return{err:GONE};x.del=true;logTo(st,w,'Deleted',x.name);return{name:x.name}},function(res){return esc(res.name)+' moved to the trash.'})}
-function restore(id){var w=who();if(!w)return;
-  run(function(st){var x=find(st,id);if(!x)return{err:GONE};var std=/^[A-Z]{4}-\d{1,5}$/i.test(x.name),e=(std?checkName(x.name,st.records,id):'')||checkIps(x.ips,st.records,id).join('<br>');if(e)return{err:'Cannot restore: '+e};x.del=false;logTo(st,w,'Restored',x.name);return{name:x.name}},function(res){return esc(res.name)+' restored.'})}
-function purge(id){var w=who();if(!w)return;var r=get(id);if(!r)return;if(!confirm('Delete '+r.name+' forever? Its IPs become free again.'))return;
-  run(function(st){var x=find(st,id);if(!x)return{err:GONE};st.records=st.records.filter(function(y){return y.id!==id});logTo(st,w,'Deleted forever',x.name);return{}},function(){return'Deleted forever.'})}
-</script></body></html>
+function reload() { return DB.load().then(function (s) { S = s; draw(); }); }
+
+/* ---------- drawing ---------- */
+function matches(r, q, c) {
+  if (!q) return true;
+  var ips = Object.keys(r.ips).map(function (k) { return r.ips[k]; }).join(' ');
+  var m = { 'Name': r.name, 'GCP & Ring': r.gcp, 'Vendor': r.vendor, 'Engineer': r.engineer, 'IP': ips };
+  var hay = c === 'All fields' ? [r.name, r.gcp, r.vendor, r.engineer, r.date, ips, r.delBy].join(' ') : m[c];
+  return String(hay || '').toLowerCase().indexOf(q) >= 0;
+}
+function draw() {
+  var na = S.records.filter(function (r) { return !r.del; }).length;
+  $('#t_act').innerHTML = 'Records <span class="n">' + na + '</span>';
+  $('#t_trash').innerHTML = 'Trash <span class="n">' + (S.records.length - na) + '</span>';
+  $('#t_log').innerHTML = 'Change log <span class="n">' + S.log.length + '</span>';
+  var q = $('#q').value.trim().toLowerCase();
+  $('#more').innerHTML = '';
+  if (cur === 'log') return drawLog(q);
+
+  var trash = cur === 'trash', c = $('#crit').value;
+  var rows = S.records.filter(function (r) { return !!r.del === trash && matches(r, q, c); });
+  if (trash) rows.sort(function (a, b) { return String(b.delAt || '').localeCompare(String(a.delAt || '')); });
+  $('#count').textContent = rows.length + ' of ' + (trash ? S.records.length - na : na) + ' shown';
+  $('#tnote').innerHTML = trash ? 'Records in the trash keep their name and IPs reserved. <b>Delete forever</b> frees them.' : 'Click <b>IPs</b> to see all addresses of a record.';
+  $('#t').className = 'cards';
+  var head = trash
+    ? '<th>Facility Name</th><th>GCP &amp; Ring</th><th>Vendor</th><th>Deleted on</th><th>Deleted by</th><th>RTU IP-1</th><th></th>'
+    : '<th>Facility Name</th><th>GCP &amp; Ring</th><th>Vendor</th><th>Date</th><th>Engineer</th><th>RTU IP-1</th><th>PLC IP-1</th><th></th>';
+  var cols = trash ? 7 : 8;
+  if (rows.length > recLimit) {
+    $('#more').innerHTML = '<button class="sm" id="moreBtn">Show ' + Math.min(100, rows.length - recLimit) + ' more</button>';
+    setTimeout(function () { $('#moreBtn').onclick = function () { recLimit += 100; draw(); }; });
+  }
+  $('#t').innerHTML = '<thead><tr>' + head + '</tr></thead><tbody>' + (rows.slice(0, recLimit).map(function (r) {
+    var id = +r.id, cells = trash
+      ? td('Facility', r.name, 'nm0') + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Deleted on', r.delAt || '-') + td('Deleted by', r.delBy || '-') + td('RTU IP-1', r.ips['RTU IP-1'], 'ip')
+      : td('Facility', r.name, 'nm0') + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Date', r.date) + td('Engineer', r.engineer) + td('RTU IP-1', r.ips['RTU IP-1'], 'ip') + td('PLC IP-1', r.ips['PLC IP-1'], 'ip');
+    var acts = '<button class="sm ghost" data-a="ips" data-id="' + id + '" aria-expanded="' + !!open[id] + '">IPs ' + (open[id] ? '&#9652;' : '&#9662;') + '</button>' + (trash
+      ? '<button class="sm" data-a="restore" data-id="' + id + '">Restore</button><button class="sm danger" data-a="purge" data-id="' + id + '">Delete forever</button>'
+      : '<button class="sm" data-a="edit" data-id="' + id + '">Modify</button><button class="sm danger" data-a="del" data-id="' + id + '">Delete</button>');
+    return '<tr>' + cells + '<td class="act">' + acts + '</td></tr>' + (open[id] ? '<tr class="detail"><td colspan="' + cols + '">' + ipGrid(r) + '</td></tr>' : '');
+  }).join('') || '<tr><td colspan="' + cols + '" class="empty">' + (q ? 'No records match your search.' : trash ? 'The trash is empty.' : 'No records yet. <a href="generate.html">Create the first one</a>.') + '</td></tr>') + '</tbody>';
+}
+function td(l, v, cls) { return '<td data-l="' + esc(l) + '"' + (cls ? ' class="' + cls + '"' : '') + '>' + (v ? esc(v) : '<span class="mut">-</span>') + '</td>'; }
+function ipGrid(r) {
+  var meta = '<div class="mut" style="font-size:.78rem;margin-bottom:6px">' + esc(r.name) + ' &middot; ' + esc(r.gcp || '-') + ' / ' + esc(r.vendor || '-') +
+    (r.gcp && r.vendor && ruleHost(r.gcp, r.vendor, r.ips) ? ' &middot; host ' + ruleHost(r.gcp, r.vendor, r.ips) : configured(r.gcp, r.vendor) ? ' &middot; <span class="warn">IPs do not follow the current rule (imported)</span>' : ' &middot; imported, range not configured') + '</div>';
+  return meta + '<div class="ipgrid">' + ALLF.filter(function (f) { return r.ips[f]; }).map(function (f) { return '<div><span>' + esc(f) + '</span><code>' + esc(r.ips[f]) + '</code></div>'; }).join('') + '</div>';
+}
+function drawLog(q) {
+  var rows = S.log.filter(function (l) { return !q || [l.t, l.who, l.act, l.name, l.det].join(' ').toLowerCase().indexOf(q) >= 0; });
+  $('#count').textContent = rows.length + ' of ' + S.log.length + ' entries';
+  $('#tnote').textContent = 'Newest first. The change log cannot be edited.';
+  $('#t').className = 'cards';
+  $('#t').innerHTML = '<thead><tr><th>Time</th><th>Engineer</th><th>Action</th><th>Facility</th><th>Details</th></tr></thead><tbody>' +
+    (rows.slice(0, logLimit).map(function (l) {
+      return '<tr>' + td('Time', l.t) + td('Engineer', l.who) + '<td data-l="Action">' + chip(l.act) + '</td>' + td('Facility', l.name) + '<td data-l="Details" style="white-space:normal;min-width:260px">' + esc(l.det || '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">' + (q ? 'No entries match your search.' : 'No changes recorded yet.') + '</td></tr>') + '</tbody>';
+  if (rows.length > logLimit) {
+    $('#more').innerHTML = '<button class="sm" id="moreBtn">Show ' + Math.min(100, rows.length - logLimit) + ' more</button>';
+    $('#moreBtn').onclick = function () { logLimit += 100; draw(); };
+  }
+}
+
+/* ---------- actions ---------- */
+function onTableClick(e) {
+  var b = e.target.closest('button[data-a]'); if (!b) return;
+  var id = +b.dataset.id, a = b.dataset.a;
+  if (a === 'ips') { open[id] = !open[id]; return draw(); }
+  ({ edit: edit, del: del, restore: restore, purge: purge })[a](id);
+}
+function get(id) { return S.records.filter(function (r) { return r.id === id; })[0]; }
+function find(st, id) { return st.records.filter(function (r) { return r.id === id; })[0]; }
+// every change runs inside one storage transaction on the newest data, so another open tab can never be overwritten
+function run(fn, okText) {
+  return DB.update(fn).then(function (res) {
+    if (res.err) { msg(res.err); return reload(); }
+    S = res.s; fillEngineerList(); draw(); msg(okText(res), 1);
+  }).catch(function () { msg('Could not complete the action. Reload the page and try again.'); });
+}
+function stale(x, r0) { return !x || (x.upd || '') !== (r0.upd || '') || !!x.del !== !!r0.del || x.name !== r0.name; }
+
+/* ----- Modify ----- */
+function edit(id) {
+  var r0 = get(id); if (!r0) return msg(GONE);
+  var std = isStdName(r0.name), parts = std ? r0.name.toUpperCase().split('-') : ['', ''];
+  var facOpts = CFG.facilities.slice(); if (std && facOpts.indexOf(parts[0]) < 0) facOpts.push(parts[0]);
+  var gcpOpts = Object.keys(CFG.gcps); if (r0.gcp && !CFG.gcps[r0.gcp]) gcpOpts.push(r0.gcp);
+  var venOpts = CFG.vendors.slice(); if (r0.vendor && venOpts.indexOf(r0.vendor) < 0) venOpts.push(r0.vendor);
+  var opt = function (arr, v, ph) { return (ph ? '<option value="">' + esc(ph) + '</option>' : '') + arr.map(function (x) { return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join(''); };
+  var body =
+    '<p class="mut" style="font-size:.84rem">Editing <b>' + esc(r0.name) + '</b>. Change only what you need.</p>' +
+    '<fieldset><legend>Facility name</legend><div class="grid2">' +
+      '<div class="field"><label for="e_fac">Facility</label><select id="e_fac">' + opt(facOpts, parts[0], std ? null : 'Keep "' + r0.name + '"') + '</select></div>' +
+      '<div class="field"><label for="e_num">Well number</label><input id="e_num" inputmode="numeric" maxlength="5" value="' + esc(parts[1]) + '"' + (std ? '' : ' placeholder="empty = keep"') + '></div>' +
+    '</div><small class="hint" id="e_nmh"></small>' +
+    (std ? '' : '<div class="note info">This record has the imported placeholder name <b>' + esc(r0.name || '(empty)') + '</b>. Leave both fields empty to keep it, or choose a facility and well number to give it a real name.</div>') +
+    '</fieldset>' +
+    '<fieldset><legend>Record details</legend><div class="grid2">' +
+      '<div class="field"><label for="e_eng">Engineer on record</label><input id="e_eng" list="engList" maxlength="40" value="' + esc(r0.engineer || '') + '" autocomplete="off"></div>' +
+      '<div class="field"><label for="e_date">Date <small>(YYYY-MM-DD)</small></label><input id="e_date" inputmode="numeric" maxlength="20" placeholder="YYYY-MM-DD" value="' + esc(r0.date || '') + '"></div>' +
+    '</div><small class="hint">The engineer on record is the owner of the facility. The person making this change is asked at the bottom.</small></fieldset>' +
+    '<fieldset><legend>Network</legend><div class="grid2">' +
+      '<div class="field"><label for="e_gcp">GCP &amp; Ring</label><select id="e_gcp">' + opt(gcpOpts, r0.gcp) + '</select></div>' +
+      '<div class="field"><label for="e_ven">Vendor</label><select id="e_ven">' + opt(venOpts, r0.vendor) + '</select></div>' +
+    '</div><div id="e_net"></div></fieldset>';
+
+  var plan = null;
+  function compute() {
+    var fac = $('#e_fac').value, num = $('#e_num').value.replace(/\D/g, ''); $('#e_num').value = num;
+    var name = r0.name, nameErr = '';
+    if (std || fac || num) {
+      name = (fac + '-' + num).toUpperCase();
+      nameErr = !fac || !num ? 'Choose a facility and type the well number.' : checkName(name, S.records, id);
+    }
+    $('#e_nmh').className = 'hint ' + (nameErr ? 'bad' : name !== r0.name ? 'ok' : '');
+    $('#e_nmh').innerHTML = nameErr ? nameErr : name !== r0.name ? 'New name: <b>' + esc(name) + '</b> &middot; available' : 'Name stays <b>' + esc(r0.name) + '</b>';
+
+    var g = $('#e_gcp').value, v = $('#e_ven').value, regen = g !== r0.gcp || v !== r0.vendor, net = '', netErr = '', a = null;
+    if (!regen) {
+      net = '<div class="note">The IP addresses stay the same.' + (configured(g, v) ? '' : ' This range is not configured (imported record), so its IPs cannot be regenerated.') + '</div>';
+    } else if (!configured(g, v)) {
+      netErr = esc(g + ' / ' + v) + ' is not configured, so new IPs cannot be generated. Keep the current GCP &amp; Ring and vendor, or choose configured ones.';
+      net = '<div class="note warn">' + netErr + '</div>';
+    } else {
+      a = allocate(g, v, S.records, id);
+      if (a.full) { netErr = esc(g + ' / ' + v) + ' is full. Nothing can be generated there.'; net = '<div class="note warn">' + netErr + '</div>'; }
+      else {
+        var fields = ALLF.filter(function (f) { return r0.ips[f] || a.ips[f]; });
+        net = '<div class="note warn"><b>New IPs will be generated</b> in ' + esc(g + ' / ' + v) + ' (host ' + a.n + '). The old IPs are released when you save.</div>' +
+          '<div style="max-height:190px;overflow:auto;margin-top:6px"><table class="diff"><thead><tr><th>Field</th><th>Now</th><th>After saving</th></tr></thead><tbody>' +
+          fields.map(function (f) { var o = r0.ips[f] || '', n = a.ips[f] || ''; return '<tr><td>' + esc(f) + '</td><td class="ip' + (o !== n ? ' old' : '') + '">' + esc(o || '-') + '</td><td class="ip' + (o !== n ? ' new' : '') + '">' + esc(n || '-') + '</td></tr>'; }).join('') +
+          '</tbody></table></div>';
+      }
+    }
+    $('#e_net').innerHTML = net;
+
+    var eng = cleanPerson($('#e_eng').value), date = $('#e_date').value.trim(), changes = [], err = nameErr || netErr;
+    if (!err && eng !== cleanPerson(r0.engineer) && (eng || r0.engineer)) { var pe = checkPerson(eng); if (pe) err = 'Engineer on record: ' + esc(pe); }
+    if (!err && date !== (r0.date || '') && !isIso(date)) err = 'The date must be a real date written as YYYY-MM-DD, for example ' + today() + '.';
+    if (name !== r0.name) changes.push('Name ' + r0.name + ' -> ' + name);
+    if (eng !== cleanPerson(r0.engineer)) changes.push('Engineer ' + (r0.engineer || '-') + ' -> ' + (eng || '-'));
+    if (date !== (r0.date || '')) changes.push('Date ' + (r0.date || '-') + ' -> ' + date);
+    if (regen && a && !a.full) changes.push((g !== r0.gcp ? 'GCP & Ring ' + r0.gcp + ' -> ' + g + '; ' : '') + (v !== r0.vendor ? 'Vendor ' + r0.vendor + ' -> ' + v + '; ' : '') + 'new IPs (host ' + a.n + ', RTU IP-1 ' + a.ips['RTU IP-1'] + ')');
+    plan = { name: name, eng: eng, date: date, g: g, v: v, regen: regen, a: a, changes: changes, err: err };
+    $('#dlgOk').disabled = !changes.length;
+    $('#dlgOk').textContent = regen && a && !a.full ? 'Save and regenerate IPs' : 'Save changes';
+  }
+  var p = ask({
+    title: 'Modify ' + r0.name, body: body, ok: 'Save changes', wide: true, name: true,
+    check: function () { compute(); return plan.err || (plan.changes.length ? '' : 'Nothing was changed.'); }
+  });
+  $('#dlg form').addEventListener('input', function (e) { if (e.target.id !== 'dlgName') compute(); });
+  $('#dlg form').addEventListener('change', function (e) { if (e.target.id !== 'dlgName') compute(); });
+  compute();
+  setTimeout(function () { $('#e_num').focus(); }, 40);
+
+  p.then(function (res) {
+    if (!res) return;
+    var pl = plan, shown = pl.a ? JSON.stringify(pl.a.ips) : '';
+    run(function (st) {
+      var x = find(st, id); if (stale(x, r0)) return { err: GONE };
+      if (pl.name !== x.name) { var e2 = checkName(pl.name, st.records, id); if (e2) return { err: e2 }; }
+      if (pl.regen) {
+        var a = allocate(pl.g, pl.v, st.records, id);
+        if (a.full) return { err: esc(pl.g + ' / ' + pl.v) + ' is full. Nothing was changed.' };
+        if (JSON.stringify(a.ips) !== shown) return { err: 'The free addresses changed while the dialog was open. Nothing was changed; open Modify again to see the new IPs.' };
+        x.ips = a.ips; x.gcp = pl.g; x.vendor = pl.v;
+      }
+      var old = x.name;
+      x.name = pl.name; x.engineer = pl.eng; x.date = pl.date; x.upd = stamp();
+      logTo(st, res.name, 'Modified', old + (old !== pl.name ? ' -> ' + pl.name : ''), pl.changes.join('; '));
+      return { name: pl.name };
+    }, function (r) { return 'Saved changes to <b>' + esc(r.name) + '</b>' + (pl.regen ? ' with new IPs (RTU IP-1 ' + esc(pl.a.ips['RTU IP-1']) + '). The old IPs are free again.' : '.'); });
+  });
+}
+
+/* ----- Delete (to trash) ----- */
+function del(id) {
+  var r0 = get(id); if (!r0) return msg(GONE);
+  ask({ title: 'Move ' + r0.name + ' to the trash?', danger: true, ok: 'Move to trash', name: true,
+    body: '<p>The record leaves the active list. Its name and IPs <b>stay reserved</b> until it is deleted forever, so they cannot be given to another facility.</p><p class="mut">You can restore it from the Trash tab.</p>' })
+  .then(function (res) {
+    if (!res) return;
+    run(function (st) {
+      var x = find(st, id); if (stale(x, r0)) return { err: GONE };
+      x.del = true; x.delAt = stamp(); x.delBy = res.name; x.upd = x.delAt;
+      logTo(st, res.name, 'Deleted', x.name, 'Moved to trash; RTU IP-1 ' + (x.ips['RTU IP-1'] || '-') + ' stays reserved');
+      return { name: x.name };
+    }, function (r) { return '<b>' + esc(r.name) + '</b> moved to the trash. Its IPs stay reserved.'; });
+  });
+}
+
+/* ----- Restore ----- */
+function restore(id) {
+  var r0 = get(id); if (!r0) return msg(GONE);
+  ask({ title: 'Restore ' + r0.name + '?', ok: 'Restore', name: true, body: '<p>The record goes back to the active list with the same name and IPs.</p>' })
+  .then(function (res) {
+    if (!res) return;
+    run(function (st) {
+      var x = find(st, id); if (stale(x, r0)) return { err: GONE };
+      var e = (isStdName(x.name) ? checkName(x.name, st.records, id) : '') || checkIps(x.ips, st.records, id).join('<br>');
+      if (e) return { err: 'Cannot restore ' + esc(x.name) + ': ' + e };
+      x.del = false; delete x.delAt; delete x.delBy; x.upd = stamp();
+      logTo(st, res.name, 'Restored', x.name, 'Back in the active list');
+      return { name: x.name };
+    }, function (r) { return '<b>' + esc(r.name) + '</b> restored.'; });
+  });
+}
+
+/* ----- Delete forever ----- */
+function purge(id) {
+  var r0 = get(id); if (!r0) return msg(GONE);
+  ask({ title: 'Delete ' + r0.name + ' forever?', danger: true, ok: 'Delete forever', name: true,
+    body: '<p>This cannot be undone. The record is removed and its name and IPs <b>become free</b>: the next new facility in ' + esc((r0.gcp || '-') + ' / ' + (r0.vendor || '-')) + ' may get them.</p>' +
+      '<div class="note warn">Only do this when the devices with these addresses no longer exist in the field.</div>' })
+  .then(function (res) {
+    if (!res) return;
+    run(function (st) {
+      var x = find(st, id); if (stale(x, r0)) return { err: GONE };
+      st.records = st.records.filter(function (y) { return y.id !== id; });
+      logTo(st, res.name, 'Deleted forever', x.name, 'Name and IPs freed; RTU IP-1 was ' + (x.ips['RTU IP-1'] || '-'));
+      return { name: x.name };
+    }, function (r) { return '<b>' + esc(r.name) + '</b> deleted forever. Its IPs are free again.'; });
+  });
+}
+</script>
+</body>
+</html>
