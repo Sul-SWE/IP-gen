@@ -1,0 +1,42 @@
+<!doctype html><html lang="en" translate="no" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"><meta name="theme-color" content="#124a2d"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>IP Generator and Tracker</title><link rel="stylesheet" href="css/style.css"></head><body><main><h1>IP Generation</h1>
+<div class="panel"><form id="f" onsubmit="return false" oninput="clearPv()" autocomplete="off">
+<h2><i>1</i>Facility</h2><div class="grid"><div><label for="fac">Facility</label><select id="fac"></select></div>
+<div><label for="num">Well number</label><input id="num" inputmode="numeric" maxlength="5" placeholder="e.g. 1000"><small>Full name: <b id="nm">-</b></small></div></div>
+<h2><i>2</i>Network</h2><div class="grid"><div><label for="gcp">GCP &amp; Ring</label><select id="gcp"></select></div><div><label for="ven">Vendor</label><select id="ven"></select></div></div>
+<h2><i>3</i>Who and when</h2><div class="grid"><div><label for="eng">TSU PAN Engineer</label><select id="eng"></select></div><div><label for="date">Date (automatic)</label><input id="date" type="text" readonly></div></div></form>
+<div class="row"><button class="primary" id="btnGen" onclick="gen()">Generate</button><button class="primary" id="btnSave" onclick="save()" disabled>Save</button><small>Generate shows a preview. Nothing is stored until you press Save.</small></div></div>
+<div id="msg"></div><div id="pv"></div></main><script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
+<script>
+var pv=null,busy=false,GR=[['RTU',['RTU IP-1','RTU IP-2']],['PLC',['PLC IP-1','PLC IP-2']],['RTU Internal',['RTU Internal IP-1','RTU Internal IP-2']],['HMI, Moxa, Laptop',['RTU-HMI IP','IES Moxa IP','Engg. Laptop IP']],['Gateways, mask, VLAN',['Gateway-1','Gateway-2','Subnet Mask','RTU VLAN','PLC VLAN']]];
+init('generate').then(function(){sel('#fac',CFG.facilities);sel('#gcp',Object.keys(CFG.gcps));sel('#ven',CFG.vendors);sel('#eng',CFG.engineers,'Select engineer');$('#date').value=today();clearPv()});
+function clearPv(){var n=$('#num');n.value=n.value.replace(/\D/g,'');$('#nm').textContent=$('#fac').value+'-'+(n.value||'____');pv=null;$('#btnSave').disabled=true;$('#pv').innerHTML='';$('#msg').className=''}
+function calc(recs){
+  $('#date').value=today();var name=$('#fac').value+'-'+$('#num').value.trim(),e=checkName(name,recs);if(e)return{err:e};
+  var eng=$('#eng').value;if(CFG.engineers.indexOf(eng)<0)return{err:'Select the engineer who is adding this record.'};
+  var g=$('#gcp').value,v=$('#ven').value;if(!CFG.gcps[g]||CFG.vendors.indexOf(v)<0)return{err:'Choose a valid GCP &amp; Ring and vendor.'};
+  var a=allocate(g,v,recs);if(a.full)return{err:esc(g+' / '+v)+' is FULL ('+CFG.max[v]+'/'+CFG.max[v]+'). Nothing was generated. Ask the team lead to extend the range in js/config.js.'};
+  var x=checkIps(a.ips,recs);if(x.length)return{err:x.join('<br>')};
+  return{name:name.toUpperCase(),g:g,v:v,a:a,eng:eng};
+}
+function show(r){
+  var u=usage(r.g,r.v,S.records),ips=r.a.ips;
+  $('#pv').innerHTML='<div class="panel"><h2>Preview: '+esc(r.name)+' <small>(not saved yet)</small></h2><div class="groups">'+GR.filter(function(g){return g[1].some(function(f){return ips[f]})}).map(function(g){return'<div class="gcard"><h3>'+g[0]+'</h3>'+g[1].filter(function(f){return ips[f]}).map(function(f){return'<div><span>'+f+'</span><code>'+esc(ips[f])+'</code></div>'}).join('')+'</div>'}).join('')+'</div><div class="row"><button onclick="copyIps(this)">Copy IPs</button></div></div>';
+  var m='No duplicates found. Host number '+r.a.n+' of '+u.max+(r.a.skipped.length?'. Skipped busy numbers: '+r.a.skipped.join(', '):'')+'. Press Save to store it.';
+  if((u.used+1)/u.max>=CFG.warnAt)m+='<br><b class="warn">Warning: '+esc(r.g+' / '+r.v)+' will be '+(u.used+1)+' / '+u.max+' full.</b>';
+  msg(m,1);
+}
+function copyIps(b){if(!pv)return;var t=ALLF.filter(function(f){return pv.a.ips[f]}).map(function(f){return f+'\t'+pv.a.ips[f]}).join('\n');
+  var done=function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy IPs'},1500)},old=function(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(e){}a.remove();done()};
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done,old);else old()}
+function fail(){clearPv();msg('Could not read the stored data. Reload the page and try again.')}
+function gen(){if(busy)return;busy=true;var b=$('#btnGen');b.classList.add('busy');
+  DB.load().then(function(s){S=s;var r=calc(S.records);if(r.err){clearPv();return msg(r.err)}pv=r;show(r);$('#btnSave').disabled=false}).catch(fail).then(function(){busy=false;b.classList.remove('busy')})}
+function save(){if(busy||!pv)return;busy=true;var b=$('#btnSave');b.classList.add('busy');var shown=JSON.stringify(pv.a.ips);
+  DB.update(function(st){var r=calc(st.records);if(r.err)return{err:r.err};if(JSON.stringify(r.a.ips)!==shown)return{err:'CHANGED'};
+    st.records.push({id:st.seq++,name:r.name,gcp:r.g,vendor:r.v,engineer:r.eng,date:today(),ips:r.a.ips,del:false});logTo(st,r.eng,'Created',r.name);return{name:r.name}})
+  .then(function(res){
+    if(res.err==='CHANGED')return DB.load().then(function(s){S=s;var r=calc(S.records);if(r.err){clearPv();return msg(r.err)}pv=r;show(r);$('#btnSave').disabled=false;msg('The numbers changed since your preview. Check the new preview and press Save again.')});
+    if(res.err){clearPv();return msg(res.err)}
+    S=res.s;$('#num').value='';clearPv();msg('Saved '+esc(res.name)+'. See it in the Worksheet.',1)})
+  .catch(fail).then(function(){busy=false;b.classList.remove('busy')})}
+</script></body></html>

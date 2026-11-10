@@ -1,0 +1,55 @@
+<!doctype html><html lang="en" translate="no" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"><meta name="theme-color" content="#124a2d"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>IP Generator and Tracker</title><link rel="stylesheet" href="css/style.css"></head><body><main><h1>IP Management</h1>
+<div class="panel"><div class="grid"><div><label for="who">Acting engineer (recorded in the log)</label><select id="who"></select></div>
+<div><label for="crit">Type</label><select id="crit"></select></div><div><label for="q">Criteria</label><input id="q" oninput="draw()" placeholder="Search text"></div></div>
+<div class="row tabs"><button id="t_act" onclick="tab('act')">Records</button><button id="t_trash" onclick="tab('trash')">Trash</button><button id="t_log" onclick="tab('log')">Change log</button></div></div>
+<div id="msg"></div>
+<div id="ed" class="panel" hidden><b>Modify <span id="edn"></span></b><div class="grid" style="margin-top:.6rem">
+<div><label for="e_fac">Facility</label><select id="e_fac"></select></div><div><label for="e_num">Well number</label><input id="e_num" maxlength="5"></div>
+<div><label for="e_gcp">GCP &amp; Ring</label><select id="e_gcp"></select></div><div><label for="e_ven">Vendor</label><select id="e_ven"></select></div>
+<div><label for="e_eng">Engineer on record</label><select id="e_eng"></select></div><div><label for="e_date">Date (YYYY-MM-DD)</label><input id="e_date" inputmode="numeric" maxlength="10" placeholder="YYYY-MM-DD"></div></div>
+<p>Changing GCP &amp; Ring or Vendor creates new IPs and releases the old ones.</p><div class="row"><button class="primary" onclick="applyEdit()">Save changes</button><button onclick="$('#ed').hidden=true">Cancel</button></div></div>
+<div class="tw"><table id="t" class="stack"><tr><td>Loading...</td></tr></table></div></main><script src="js/config.js"></script><script src="js/engine.js"></script><script src="js/storage.js"></script><script src="js/common.js"></script>
+<script>
+var cur='act',eid=null,GONE='That record no longer exists (it was changed elsewhere). The list was refreshed.';
+init('management').then(function(){sel('#who',CFG.engineers,'Select acting engineer');sel('#crit',['Name','GCP & Ring','Vendor','Engineer','IP']);tab(location.hash==='#log'?'log':'act')});
+function tab(x){cur=x;['act','trash','log'].forEach(function(k){$('#t_'+k).className=k===x?'on':''});$('#ed').hidden=true;draw()}
+function who(){var w=$('#who').value;if(!w)msg('Select the acting engineer first.');return w}
+function draw(){
+  var na=S.records.filter(function(r){return!r.del}).length;$('#t_act').textContent='Records ('+na+')';$('#t_trash').textContent='Trash ('+(S.records.length-na)+')';$('#t_log').textContent='Change log ('+S.log.length+')';
+  if(cur==='log'){$('#t').className='';$('#t').innerHTML='<tr><th>Time</th><th>Engineer</th><th>Action</th><th>Facility</th></tr>'+(S.log.map(function(l){return'<tr><td>'+esc(l.t)+'</td><td>'+esc(l.who)+'</td><td>'+esc(l.act)+'</td><td>'+esc(l.name)+'</td></tr>'}).join('')||'<tr><td colspan="4">No changes recorded yet.</td></tr>');return}
+  $('#t').className='stack';
+  var q=$('#q').value.toLowerCase(),c=$('#crit').value,rows=S.records.filter(function(r){return!!r.del===(cur==='trash')}).filter(function(r){var m={'Name':r.name,'GCP & Ring':r.gcp,'Vendor':r.vendor,'Engineer':r.engineer,'IP':Object.keys(r.ips).map(function(k){return r.ips[k]}).join(' ')};return!q||String(m[c]).toLowerCase().indexOf(q)>=0});
+  $('#t').innerHTML='<tr class="hd"><th>Facility Name</th><th>GCP &amp; Ring</th><th>Vendor</th><th>Date</th><th>Engineer</th><th>RTU IP-1</th><th>PLC IP-1</th><th></th></tr>'+(rows.map(function(r){
+    return'<tr><td data-l="Facility">'+esc(r.name)+'</td><td data-l="GCP &amp; Ring">'+esc(r.gcp)+'</td><td data-l="Vendor">'+esc(r.vendor)+'</td><td data-l="Date">'+esc(r.date)+'</td><td data-l="Engineer">'+esc(r.engineer)+'</td><td data-l="RTU IP-1">'+esc(r.ips['RTU IP-1'])+'</td><td data-l="PLC IP-1">'+esc(r.ips['PLC IP-1'])+'</td><td>'+(cur==='act'?'<button class="sm" onclick="edit('+(+r.id)+')">Modify</button> <button class="sm danger" onclick="del('+(+r.id)+')">Delete</button>':'<button class="sm" onclick="restore('+(+r.id)+')">Restore</button> <button class="sm danger" onclick="purge('+(+r.id)+')">Delete forever</button>')+'</td></tr>'}).join('')||'<tr><td colspan="8">Nothing here.</td></tr>');
+}
+function get(id){return S.records.filter(function(r){return r.id===id})[0]}
+function find(st,id){return st.records.filter(function(r){return r.id===id})[0]}
+/* every change runs inside one storage transaction on the newest data, so another open tab can never be overwritten */
+function run(fn,okf){return DB.update(fn).then(function(res){if(res.err){msg(res.err);return DB.load().then(function(s){S=s;draw()})}S=res.s;draw();msg(okf(res),1)}).catch(function(){msg('Could not complete the action. Reload the page and try again.')})}
+function edit(id){if(!who())return;var r=get(id);if(!r)return;eid=id;$('#edn').textContent=r.name;var m=/^([A-Z]{4})-(\d{1,5})$/i.exec(r.name),f=m?m[1].toUpperCase():'';
+  sel('#e_fac',CFG.facilities.concat(m&&CFG.facilities.indexOf(f)<0?[f]:[]),m?null:'(keep current name)');$('#e_fac').value=f;$('#e_num').value=m?m[2]:'';
+  sel('#e_gcp',Object.keys(CFG.gcps).concat(CFG.gcps[r.gcp]?[]:[r.gcp]));$('#e_gcp').value=r.gcp;
+  sel('#e_ven',CFG.vendors.concat(CFG.vendors.indexOf(r.vendor)<0?[r.vendor]:[]));$('#e_ven').value=r.vendor;
+  sel('#e_eng',CFG.engineers.concat(r.engineer&&CFG.engineers.indexOf(r.engineer)<0?[r.engineer]:[]),r.engineer?null:'(none)');$('#e_eng').value=r.engineer||'';
+  $('#e_date').value=r.date||'';$('#ed').hidden=false;$('#ed').scrollIntoView({behavior:'smooth'})}
+function applyEdit(){var w=who();if(!w)return;var r0=get(eid);if(!r0)return msg(GONE);
+  var fac=$('#e_fac').value,num=$('#e_num').value.trim().replace(/\D/g,''),g=$('#e_gcp').value,v=$('#e_ven').value,en=$('#e_eng').value,dt=$('#e_date').value.trim(),std=/^[A-Z]{4}-\d{1,5}$/i.test(r0.name),name=r0.name,rename=!!(fac||num||std);
+  if(rename){name=(fac+'-'+num).toUpperCase();var e=checkName(name,S.records,eid);if(e)return msg(e)}
+  if(!en&&r0.engineer)return msg('Select the engineer on record.');
+  if(dt!==r0.date&&!isIso(dt))return msg('The date must look like 2026-11-04.');
+  var regen=g!==r0.gcp||v!==r0.vendor;
+  if(regen){if(!CFG.gcps[g]||CFG.vendors.indexOf(v)<0)return msg('This GCP &amp; Ring or vendor is not configured, so new IPs cannot be generated.');
+    var a0=allocate(g,v,S.records,eid);if(a0.full)return msg(esc(g+' / '+v)+' is FULL. Nothing was changed.');
+    if(!confirm('This creates new IPs (RTU IP-1 '+a0.ips['RTU IP-1']+') and releases the old ones. Continue?'))return}
+  run(function(st){var x=find(st,eid);if(!x)return{err:GONE};
+    if(rename&&name!==x.name){var e2=checkName(name,st.records,eid);if(e2)return{err:e2}}
+    if(regen){var a=allocate(g,v,st.records,eid);if(a.full)return{err:esc(g+' / '+v)+' is FULL. Nothing was changed.'};x.ips=a.ips;x.gcp=g;x.vendor=v}
+    var old=x.name;x.name=name;x.engineer=en;x.date=dt;logTo(st,w,'Modified',old+(old!==name?' -> '+name:''));return{}},
+    function(){$('#ed').hidden=true;return'Changes saved.'})}
+function del(id){var w=who();if(!w)return;var r=get(id);if(!r)return;if(!confirm('Move '+r.name+' to the trash? Its IPs stay reserved.'))return;
+  run(function(st){var x=find(st,id);if(!x)return{err:GONE};x.del=true;logTo(st,w,'Deleted',x.name);return{name:x.name}},function(res){return esc(res.name)+' moved to the trash.'})}
+function restore(id){var w=who();if(!w)return;
+  run(function(st){var x=find(st,id);if(!x)return{err:GONE};var std=/^[A-Z]{4}-\d{1,5}$/i.test(x.name),e=(std?checkName(x.name,st.records,id):'')||checkIps(x.ips,st.records,id).join('<br>');if(e)return{err:'Cannot restore: '+e};x.del=false;logTo(st,w,'Restored',x.name);return{name:x.name}},function(res){return esc(res.name)+' restored.'})}
+function purge(id){var w=who();if(!w)return;var r=get(id);if(!r)return;if(!confirm('Delete '+r.name+' forever? Its IPs become free again.'))return;
+  run(function(st){var x=find(st,id);if(!x)return{err:GONE};st.records=st.records.filter(function(y){return y.id!==id});logTo(st,w,'Deleted forever',x.name);return{}},function(){return'Deleted forever.'})}
+</script></body></html>
