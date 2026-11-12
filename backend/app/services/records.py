@@ -45,15 +45,15 @@ def serialize(r: Record) -> dict:
 def build_index(db: Session, exclude_id: int | None = None) -> E.Index:
     """Every name and IP in use by active and trashed records (optionally ignoring one record)."""
     idx = E.Index()
-    q = select(Record.id, Record.name, Record.name_key, Record.status)
-    for rid, name, key, status in db.execute(q):
+    names: dict[int, str] = {}
+    for rid, name, key, status in db.execute(select(Record.id, Record.name, Record.name_key, Record.status)).all():
+        names[rid] = name
         if rid != exclude_id and key:
             idx.names[name.upper()] = "trash" if status == "trash" else "active"
-    q2 = select(IpAssignment.field, IpAssignment.ip, Record.name, Record.id).join(Record, Record.id == IpAssignment.record_id)
-    for fld, ip, name, rid in db.execute(q2):
-        if rid == exclude_id:
-            continue
-        (idx.device if fld in E.UNIQ else idx.infra)[ip] = name
+    device, infra, uniq = idx.device, idx.infra, set(E.UNIQ)
+    for rid, fld, ip in db.execute(select(IpAssignment.record_id, IpAssignment.field, IpAssignment.ip)).all():
+        if rid != exclude_id:
+            (device if fld in uniq else infra)[ip] = names.get(rid, "")
     return idx
 
 

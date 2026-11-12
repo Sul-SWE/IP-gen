@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<title>IP Management - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="pagehead">
+    <div><h1>IP Management</h1><p>Search, modify, delete and restore records. Every change is written to the change log with your name.</p></div>
+    <div class="tabs" role="tablist" aria-label="Lists">
+      <button type="button" role="tab" id="t_active">Records</button><button type="button" role="tab" id="t_trash">Trash</button><button type="button" role="tab" id="t_log">Change log</button>
+    </div>
+  </div>
+  <div class="panel" style="padding:10px 14px">
+    <div class="toolbar">
+      <div class="field q"><label for="q">Search</label><input id="q" type="search" maxlength="60" placeholder="Name, IP, GCP, vendor, engineer..." autocomplete="off"></div>
+      <div class="field s" id="critBox"><label for="crit">Search in</label><select id="crit"></select></div>
+      <span class="sp"></span><small id="count" aria-live="polite"></small>
+    </div>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div class="tw"><table id="t" class="cards"><tbody><tr><td><div class="skel" style="width:60%"></div><div class="skel"></div></td></tr></tbody></table></div>
+  <div class="tfoot"><span id="tnote"></span><span id="more"></span></div>
+</main>
+<script src="js/util.js"></script><script src="js/api.js"></script><script src="js/common.js"></script><script src="js/pages/management.js"></script>
+</body>
+</html>

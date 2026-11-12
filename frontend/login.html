@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<title>Admin sign in - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main class="login">
+  <form class="panel logincard" id="f" novalidate>
+    <div class="brand2"><span class="logo" aria-hidden="true">IP</span>IP Generator</div>
+    <h1>Admin sign in</h1>
+    <p class="mut">Only needed to create or change records. Viewing the dashboard and worksheet needs no sign-in.</p>
+    <div id="msg" class="msg"></div>
+    <div class="field"><label for="u">Username</label><input id="u" autocomplete="username" maxlength="40" autocapitalize="none" spellcheck="false"></div>
+    <div class="field"><label for="p">Password</label><input id="p" type="password" autocomplete="current-password" maxlength="200"></div>
+    <button class="primary" id="go" type="submit">Sign in</button>
+    <a class="more" href="index.html">Continue as viewer (read only)</a>
+  </form>
+</main>
+<script src="js/util.js"></script><script src="js/api.js"></script><script src="js/pages/login.js"></script>
+</body>
+</html>

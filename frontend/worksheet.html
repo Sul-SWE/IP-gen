@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<title>Worksheet - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="pagehead">
+    <div><h1>Worksheet</h1><p id="sub">All records in one read-only table.</p></div>
+    <div class="qa admin-only">
+      <button class="primary" id="btnExp" type="button" title="Download all active records as an Excel file">Export Excel</button>
+      <label class="btn" for="impf" id="btnImp" tabindex="0" role="button">Import Excel</label>
+      <input id="impf" type="file" accept=".xlsx" hidden>
+      <button id="btnUndo" type="button" disabled>Undo last import</button>
+    </div>
+  </div>
+  <div class="panel" style="padding:10px 14px">
+    <div class="toolbar">
+      <div class="field q"><label for="q">Filter</label><input id="q" type="search" maxlength="60" placeholder="Name, IP, GCP, vendor, engineer, date..." autocomplete="off"></div>
+      <label class="check" style="margin-bottom:8px"><input type="checkbox" id="sd">Show deleted (trash)</label>
+      <span class="sp"></span><small id="count" aria-live="polite" style="margin-bottom:8px"></small>
+    </div>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div class="tw"><table id="t"><tbody><tr><td><div class="skel" style="width:60%"></div><div class="skel"></div></td></tr></tbody></table></div>
+  <div class="tfoot"><span>Deleted rows are shown struck through; their name and IPs are still reserved.</span><span id="more"></span></div>
+</main>
+<script src="js/util.js"></script><script src="js/api.js"></script><script src="js/common.js"></script><script src="js/pages/worksheet.js"></script>
+</body>
+</html>

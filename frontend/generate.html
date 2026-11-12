@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<title>IP Generation - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main>
+  <div class="pagehead"><div><h1>IP Generation</h1><p>Fill in the 3 steps, press Generate to preview, then Save.</p></div></div>
+  <div id="msg" class="msg"></div>
+  <div class="gen">
+    <section class="panel" aria-label="New facility">
+      <form id="f" autocomplete="off" novalidate>
+        <div class="step"><i>1</i>Facility</div>
+        <div class="grid2">
+          <div class="field"><label for="fac">Facility</label><select id="fac"></select></div>
+          <div class="field"><label for="num">Well number</label><input id="num" inputmode="numeric" maxlength="5" placeholder="e.g. 1000" aria-describedby="nmHint"></div>
+        </div>
+        <small class="hint" id="nmHint" aria-live="polite">Full name: <b>-</b></small>
+
+        <div class="step"><i>2</i>Network</div>
+        <div class="grid2">
+          <div class="field"><label for="gcp">GCP &amp; Ring</label><select id="gcp"></select></div>
+          <div class="field"><label for="ven">Vendor</label><select id="ven"></select></div>
+        </div>
+        <div class="rangeinfo" id="rinfo" aria-live="polite"></div>
+
+        <div class="step"><i>3</i>Who and when</div>
+        <div class="grid2">
+          <div class="field"><label for="eng">TSU PAN Engineer</label><input id="eng" list="engList" maxlength="40" placeholder="Type your name" autocomplete="off"></div>
+          <div class="field"><label for="date">Date <small>(automatic)</small></label><input id="date" type="text" readonly tabindex="-1"></div>
+        </div>
+        <div class="row" style="margin-top:14px"><button class="primary" id="btnGen" type="submit">Generate preview</button><small>Nothing is saved until you press Save.</small></div>
+      </form>
+    </section>
+    <section class="panel" id="pv" aria-live="polite" aria-label="Preview"></section>
+  </div>
+</main>
+<script src="js/util.js"></script><script src="js/api.js"></script><script src="js/common.js"></script><script src="js/pages/generate.js"></script>
+</body>
+</html>
