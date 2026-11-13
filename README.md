@@ -18,6 +18,9 @@ Generates, checks and tracks the IP addresses of RTU / PLC devices from fixed ru
   Because the account is shared, each engineer types their own name; it is written to the change log with every change.
 
 ## Run it on your computer (Windows, MySQL already installed)
+
+Easiest: create the database (step 2 below), then double-click **start.bat** in the project folder and follow what it says.
+
 1. Install **Python 3.11 or newer** (tick "Add Python to PATH").
 2. Create an empty database and a user (MySQL Workbench or the `mysql` command line):
    ```sql
