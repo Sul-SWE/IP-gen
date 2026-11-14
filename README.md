@@ -17,33 +17,19 @@ Generates, checks and tracks the IP addresses of RTU / PLC devices from fixed ru
   **Only one admin can be signed in at a time**; a second sign-in is told so and may take over (the first session ends).
   Because the account is shared, each engineer types their own name; it is written to the change log with every change.
 
-## Run it on your computer (Windows, MySQL already installed)
+## Run it on your computer (Windows)
 
-Easiest: create the database (step 2 below), then double-click **start.bat** in the project folder and follow what it says.
+1. Install **Python 3.11 or newer** from python.org and tick **"Add Python to PATH"** on the first installer screen.
+2. Make sure **MySQL** is running (MySQL service, or XAMPP: press Start next to MySQL).
+3. Double-click **`start.bat`** in the project folder.
+   - First time only: it installs the packages, then asks for the MySQL user (Enter = `root`), its password
+     (Enter if none) and a password for the website admin. It creates the database `ipgen` and the file `backend/.env` by itself.
+4. The browser opens **http://localhost:8000**. Admin sign-in: user `admin` and the password you chose.
 
-1. Install **Python 3.11 or newer** (tick "Add Python to PATH").
-2. Create an empty database and a user (MySQL Workbench or the `mysql` command line):
-   ```sql
-   CREATE DATABASE ipgen CHARACTER SET utf8mb4;
-   CREATE USER 'ipgen_user'@'localhost' IDENTIFIED BY 'choose-a-db-password';
-   GRANT ALL PRIVILEGES ON ipgen.* TO 'ipgen_user'@'localhost';
-   ```
-3. In a terminal, inside the `backend` folder:
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   copy .env.example .env
-   ```
-   (macOS / Linux: `source .venv/bin/activate` and `cp .env.example .env`)
-4. Open `backend/.env` and set `DATABASE_URL` (the database password from step 2) and `ADMIN_PASSWORD` (8+ characters).
-5. Start it:
-   ```bash
-   python run.py
-   ```
-   Open **http://localhost:8000**. The first start creates the tables, the default (dummy) rules and the admin account.
+Keep the black window open while you use the site; closing it stops the site. Next time: double-click `start.bat` again.
+To change the settings later, edit `backend/.env` (see `.env.example`) or delete it to be asked again.
 
-Next time only: `.venv\Scripts\activate` then `python run.py`.
+Manual start (any system): in `backend/`, `python -m venv .venv`, activate it, `pip install -r requirements.txt`, `python run.py`.
 
 To let colleagues on the same network open it, set `HOST=0.0.0.0` in `.env` and give them `http://YOUR-PC-NAME:8000`
 (ask IT first; use HTTPS and `COOKIE_SECURE=true` on a real server).
