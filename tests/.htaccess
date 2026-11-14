@@ -1,0 +1,2 @@
+# Server code, settings (config.php) and runtime files are never served to the browser.
+Require all denied

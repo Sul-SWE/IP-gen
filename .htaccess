@@ -1,0 +1,16 @@
+# Apache (XAMPP) settings for the IP Generator.
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "no-referrer"
+  <FilesMatch "\.html$">
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+# hidden files (.git, .env ...) are never served
+RedirectMatch 404 /\.

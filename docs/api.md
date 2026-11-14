@@ -1,11 +1,12 @@
-# API (prefix `/api`, JSON)
+# API (JSON, served at `api/index.php/<route>`)
 
 Errors: `{"error": "code", "message": "text", "details": ["..."]}` with status 400 / 401 / 403 / 404 / 409 / 413 / 422 / 429.
 Admin endpoints need the session cookie; every POST / PATCH / DELETE also needs the header `X-CSRF-Token` (from `/auth/me` or `/auth/login`).
-Interactive documentation while the server runs: `/api/docs`.
+Example: `GET http://localhost/IP-gen/api/index.php/dashboard`. Routes below are relative to `api/index.php`.
 
 | Method and path | Purpose | Who |
 |---|---|---|
+| GET `/setup/status`, POST `/setup` `{host, port, user, password, database, admin_password}` | first-run setup (only while not configured, only from localhost) | all |
 | GET `/auth/me` | role (`viewer` / `admin`), CSRF token | all |
 | POST `/auth/login` `{username, password, force?}` | sign in; `409 admin_busy` when another admin is active | all |
 | POST `/auth/logout`, POST `/auth/password` `{current, new}` | sign out, change password | admin |

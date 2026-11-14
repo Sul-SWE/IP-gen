@@ -5,34 +5,34 @@ Generates, checks and tracks the IP addresses of RTU / PLC devices from fixed ru
 
 | Part | Technology |
 |---|---|
-| Frontend (`frontend/`) | HTML, CSS, JavaScript (no framework) |
-| Backend (`backend/`) | Python, FastAPI, SQLAlchemy, Alembic |
-| Database | MySQL / MariaDB (SQLite works for a quick trial) |
-| Excel | openpyxl on the server (`.xlsx`) |
+| Pages (project root) | HTML, CSS, JavaScript (no framework) |
+| Server (`api/`, `server/`) | PHP 8.0+ (no Composer, no extra libraries) |
+| Database | MySQL / MariaDB (the one in XAMPP works) |
+| Excel | read and written by the server in plain PHP (`.xlsx`) |
 | `prototype/` | the earlier browser-only prototype, kept as reference |
 
 ## Who uses it
 - **Viewer**: opens the site and sees the Dashboard and the Worksheet. No sign-in, read only.
-- **Admin**: signs in with the shared admin account to generate, modify, delete, import/export and change the rules.
+- **Admin**: signs in (user `admin`) to generate, modify, delete, import/export and change the rules.
   **Only one admin can be signed in at a time**; a second sign-in is told so and may take over (the first session ends).
   Because the account is shared, each engineer types their own name; it is written to the change log with every change.
 
-## Run it on your computer (Windows)
+## Run it with XAMPP (Windows)
+1. Open the **XAMPP Control Panel** and press **Start** next to **Apache** and **MySQL**.
+2. Copy the project folder into `C:\xampp\htdocs\` so that you have `C:\xampp\htdocs\IP-gen\index.html`.
+3. Open **http://localhost/IP-gen/** in the browser.
+4. The first time, the **setup page** opens: MySQL user `root`, password empty (XAMPP default), database `ipgen`,
+   then choose the website admin password. It creates the database, the tables, the default (dummy) rules and the admin account,
+   and saves `server/config.php`.
+5. Sign in with user **admin** and the password you chose.
 
-1. Install **Python 3.11 or newer** from python.org and tick **"Add Python to PATH"** on the first installer screen.
-2. Make sure **MySQL** is running (MySQL service, or XAMPP: press Start next to MySQL).
-3. Double-click **`start.bat`** in the project folder.
-   - First time only: it installs the packages, then asks for the MySQL user (Enter = `root`), its password
-     (Enter if none) and a password for the website admin. It creates the database `ipgen` and the file `backend/.env` by itself.
-4. The browser opens **http://localhost:8000**. Admin sign-in: user `admin` and the password you chose.
+Next time: start Apache and MySQL in XAMPP, then open http://localhost/IP-gen/.
+To run setup again (for example a new MySQL password), delete `server/config.php`. Existing data is kept.
 
-Keep the black window open while you use the site; closing it stops the site. Next time: double-click `start.bat` again.
-To change the settings later, edit `backend/.env` (see `.env.example`) or delete it to be asked again.
-
-Manual start (any system): in `backend/`, `python -m venv .venv`, activate it, `pip install -r requirements.txt`, `python run.py`.
-
-To let colleagues on the same network open it, set `HOST=0.0.0.0` in `.env` and give them `http://YOUR-PC-NAME:8000`
-(ask IT first; use HTTPS and `COOKIE_SECURE=true` on a real server).
+Other web servers: any Apache with PHP 8.0+ and `AllowOverride All` (for the `.htaccess` files) works.
+Without Apache: `php -S localhost:8000 server/dev-router.php` in the project folder, then open http://localhost:8000.
+To let colleagues on the same network use it, give them `http://YOUR-PC-NAME/IP-gen/` (ask IT first; use HTTPS and
+`'cookie_secure' => true` in `server/config.php` on a real server).
 
 ## Everyday use
 - **Dashboard**: free host numbers per GCP & Ring and vendor, the next host and RTU IP-1 each range will give, facilities by area.
@@ -51,22 +51,19 @@ in any column; IPv4 octets 0-255 (leading zeros normalised); no device on a gate
 Import only adds rows and never changes existing records. Unknown or empty extra columns and other sheets (for example "Backend") are ignored.
 
 ## Backup
-```bash
-python backup.py
-```
-writes `backend/backups/ipgen-DATE.sql` (needs `mysqldump`). The Excel export is the second backup.
+Export Excel regularly (Worksheet page). Full database backup: phpMyAdmin (http://localhost/phpmyadmin) > database `ipgen` > Export,
+or `C:\xampp\mysql\bin\mysqldump -u root ipgen > ipgen-backup.sql`.
 
 ## Tests
-```bash
-pip install -r requirements-dev.txt
-pytest                       # 70 tests: engine, API, security, concurrency, import/export, admin panel
-ruff check app tests
-```
-Run the same tests on MySQL: set `TEST_DATABASE_URL=mysql+pymysql://user:pass@localhost/ipgen_test?charset=utf8mb4` (an empty test database).
-Browser tests (Node + Playwright, server running on an empty database): `BASE=http://localhost:8000 ADMIN_PASS=... node e2e/e2e.js`
+- Engine: `php tests/engine_test.php` (28 tests).
+- API (49 tests, Python + pytest, server running with `php -S 127.0.0.1:8030 server/dev-router.php`):
+  `pip install pytest httpx pymysql openpyxl` then `pytest tests/api` (settings: `PHP_BASE`, `TEST_DB_USER`, `TEST_DB_PASS`, `TEST_DB_NAME`).
+- Browser (Node + Playwright, no `server/config.php`, empty database):
+  `BASE=http://localhost/IP-gen/ ADMIN_PASS=... DB_USER=root DB_PASS= DB_NAME=ipgen_e2e node e2e/e2e.js`
 
 ## Safety rules for this repository
 - Never commit real IPs, device names, rules or screenshots. Real rules are entered in **Settings** and live only in your database.
-- Never commit `.env` or database files (already in `.gitignore`).
+- Never commit `server/config.php` (it holds the MySQL password; already in `.gitignore`).
 
 More: [docs/architecture.md](docs/architecture.md), [docs/api.md](docs/api.md), [docs/decisions.md](docs/decisions.md).
+The earlier Python (FastAPI) server is in the git history (commit `c0c5440`).

@@ -1,5 +1,6 @@
-/* End-to-end test in a real browser (Playwright). Start the server on an EMPTY database first, then:
-     BASE=http://localhost:8000 ADMIN_USER=admin ADMIN_PASS=... node e2e/e2e.js
+/* End-to-end test in a real browser (Playwright). Start the server with NO server/config.php and an empty database, then:
+     BASE=http://localhost:8030 ADMIN_PASS=... DB_USER=... DB_PASS=... DB_NAME=... node e2e/e2e.js
+   It first completes the setup page, then checks every screen.
    The browser locale is Arabic on purpose: pages must still show English digits. */
 const { chromium } = require('playwright');
 const path = require('path');
@@ -8,6 +9,7 @@ const BASE = (process.env.BASE || 'http://localhost:8000').replace(/\/$/, '') + 
 const USER = process.env.ADMIN_USER || 'admin', PASS = process.env.ADMIN_PASS || '';
 const SHOTS = process.env.SHOTS || '';
 const SAMPLE = path.join(__dirname, '..', 'prototype', 'data', 'sample-data.xlsx');
+const PAGES_DIR = '';
 let failed = 0;
 const ok = (name, cond, detail) => { if (!cond) failed++; console.log((cond ? 'PASS ' : 'FAIL ') + name + (detail !== undefined && !cond ? ' :: ' + detail : '')); };
 
@@ -17,7 +19,7 @@ const ok = (name, cond, detail) => { if (!cond) failed++; console.log((cond ? 'P
   const p = await ctx.newPage();
   const errs = [];
   const watch = (page, tag) => {
-    page.on('console', m => { if (m.type() === 'error' && !/status of (401|409|400|404|429)/.test(m.text())) errs.push(tag + ': ' + m.text()); });
+    page.on('console', m => { if (m.type() === 'error' && !/status of (401|409|400|404|429|503)/.test(m.text())) errs.push(tag + ': ' + m.text()); });
     page.on('pageerror', e => errs.push(tag + ' PAGEERROR: ' + e.message));
   };
   watch(p, 'admin');
@@ -26,6 +28,17 @@ const ok = (name, cond, detail) => { if (!cond) failed++; console.log((cond ? 'P
   const shot = async name => { if (SHOTS) await p.screenshot({ path: path.join(SHOTS, name + '.png') }); };
   const text = sel => p.textContent(sel);
   const confirm = async (name) => { if (name) await p.fill('#dlgName', name); await p.click('#dlgOk'); await W(700); };
+
+  /* ---------- first-time setup page ---------- */
+  await go('index.html', 900);
+  ok('first visit opens the setup page', /setup\.html/.test(p.url()), p.url());
+  await p.fill('#user', process.env.DB_USER || 'root'); await p.fill('#pass', process.env.DB_PASS || '');
+  await p.fill('#host', process.env.DB_HOST || '127.0.0.1'); await p.fill('#dbname', process.env.DB_NAME || 'ipgen');
+  await p.fill('#ap1', 'short'); await p.fill('#ap2', 'short'); await p.click('#go'); await W(300);
+  ok('setup refuses a short admin password', /at least 8/.test(await text('#msg')));
+  await p.fill('#ap1', PASS); await p.fill('#ap2', PASS); await shot('00-setup');
+  await p.click('#go'); await W(2500);
+  ok('setup finishes and opens the sign-in page', /login\.html/.test(p.url()), p.url());
 
   /* ---------- viewer: no sign-in ---------- */
   await go('index.html');

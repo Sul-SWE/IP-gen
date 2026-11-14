@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" translate="no" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="theme-color" content="#124a2d">
+<title>Setup - IP Generator</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<main class="login" style="max-width:520px">
+  <form class="panel logincard" id="f" novalidate autocomplete="off">
+    <div class="brand2"><span class="logo" aria-hidden="true">IP</span>IP Generator</div>
+    <h1>First-time setup</h1>
+    <p class="mut">Connect the tool to MySQL and choose the website admin password. This is done once, on the computer that runs the server.</p>
+    <div id="msg" class="msg"></div>
+    <fieldset><legend>MySQL (in XAMPP: user root, empty password)</legend>
+      <div class="grid2">
+        <div class="field"><label for="user">MySQL user</label><input id="user" value="root" maxlength="80" autocapitalize="none" spellcheck="false"></div>
+        <div class="field"><label for="pass">MySQL password <small>(empty if none)</small></label><input id="pass" type="password" maxlength="200" autocomplete="off"></div>
+        <div class="field"><label for="host">Server</label><input id="host" value="localhost" maxlength="100" spellcheck="false"></div>
+        <div class="field"><label for="port">Port</label><input id="port" value="3306" inputmode="numeric" maxlength="5"></div>
+        <div class="field" style="grid-column:1/-1"><label for="dbname">Database name <small>(created if it does not exist)</small></label><input id="dbname" value="ipgen" maxlength="64" spellcheck="false"></div>
+      </div>
+    </fieldset>
+    <fieldset><legend>Website admin</legend>
+      <p class="mut small">User name: <b>admin</b>. Choose its password (8 or more characters).</p>
+      <div class="grid2">
+        <div class="field"><label for="ap1">Admin password</label><input id="ap1" type="password" maxlength="200" autocomplete="new-password"></div>
+        <div class="field"><label for="ap2">Repeat it</label><input id="ap2" type="password" maxlength="200" autocomplete="new-password"></div>
+      </div>
+    </fieldset>
+    <button class="primary" id="go" type="submit">Connect and set up</button>
+  </form>
+</main>
+<script src="js/util.js"></script><script src="js/api.js"></script><script src="js/pages/setup.js"></script>
+</body>
+</html>
