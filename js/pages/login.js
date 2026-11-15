@@ -8,6 +8,8 @@
     login_required: ['Sign in as admin to open that page.', 'info']
   };
   if (reasons[q.get('reason')]) msg(esc(reasons[q.get('reason')][0]), reasons[q.get('reason')][1]);
+  // already signed in as admin in this browser: no need to sign in again
+  API.get('/auth/me').then(function (m) { if (m.role === 'admin' && !q.get('reason')) location.replace(next); }, function () {});
   $('#u').focus();
 
   function signIn(force) {

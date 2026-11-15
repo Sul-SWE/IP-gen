@@ -51,6 +51,15 @@ def test_only_one_admin_at_a_time(app):
     assert second.save(1).status_code == 201
 
 
+def test_same_browser_signs_in_again_without_take_over(app):
+    a = Api(app)
+    r = a.c.post("/api/auth/login", json=ADMIN)          # same cookie: a second tab of the same admin
+    assert r.status_code == 200
+    a.csrf = r.json()["csrf"]
+    assert a.preview(1).status_code == 200
+    assert Api(app, login=False).c.post("/api/auth/login", json=ADMIN).status_code == 409   # a different browser is still stopped
+
+
 def test_idle_admin_does_not_block_sign_in(app):
     Api(app)
     _age_sessions(app, 6)

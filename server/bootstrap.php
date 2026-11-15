@@ -5,6 +5,18 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 date_default_timezone_set('UTC');   // times are taken from MySQL (the computer's clock); PHP only does arithmetic on them
 
+if (!function_exists('str_contains')) {   // PHP 7.4 (older XAMPP)
+    function str_contains(string $h, string $n): bool { return $n === '' || strpos($h, $n) !== false; }
+}
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $h, string $n): bool { return strncmp($h, $n, strlen($n)) === 0; }
+}
+if (PHP_VERSION_ID < 70400) {
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error' => 'php_version', 'message' => 'PHP 7.4 or newer is needed (this server has ' . PHP_VERSION . '). Please update XAMPP.', 'details' => []]);
+    exit;
+}
 if (!function_exists('array_is_list')) {   // PHP 8.0
     function array_is_list(array $a): bool { $i = 0; foreach ($a as $k => $_) { if ($k !== $i++) { return false; } } return true; }
 }

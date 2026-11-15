@@ -227,7 +227,9 @@ final class Api
         } catch (Throwable $e) {   // never leak internals
             if ($this->db) { $this->db->rollback(); }
             @file_put_contents(__DIR__ . '/storage/error.log', date('c') . ' ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine() . "\n", FILE_APPEND);
-            self::send(['error' => 'server', 'message' => 'Something went wrong on the server. Nothing was changed.', 'details' => []], 500);
+            // on the server computer itself, show what happened so it can be fixed; other computers only see a general message
+            $detail = self::isLocal() ? [get_class($e) . ': ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ', PHP ' . PHP_VERSION . ')'] : [];
+            self::send(['error' => 'server', 'message' => 'Something went wrong on the server. Nothing was changed.', 'details' => $detail], 500);
         }
     }
 
@@ -324,7 +326,10 @@ final class Api
     private function login(): array
     {
         $b = $this->body(['username' => ['str', 'min' => 1, 'max' => 40], 'password' => ['str', 'min' => 1, 'max' => 200], 'force' => ['bool', 'default' => false]]);
-        [$token, $csrf] = Auth::login($this->db(), $this->cfg(), $b['username'], $b['password'], $this->ip(), $b['force']);
+        // signing in again from the same browser (e.g. a second tab) is the same person, not another admin
+        $same = false;
+        try { $same = Auth::session($this->db(), $this->cfg(), $this->cookie()) !== null; } catch (ApiError $e) { $same = false; }
+        [$token, $csrf] = Auth::login($this->db(), $this->cfg(), $b['username'], $b['password'], $this->ip(), $b['force'] || $same);
         $this->setCookie($token, (int)$this->cfg()['session_hours'] * 3600);
         return ['role' => 'admin', 'csrf' => $csrf];
     }
