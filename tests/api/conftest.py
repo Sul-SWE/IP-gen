@@ -24,8 +24,9 @@ ADMIN = {"username": "admin", "password": "test-password-1"}
 class Client(httpx.Client):
     """httpx client that maps /api/... to the PHP entry point /api/index.php/..."""
 
-    def __init__(self):
-        super().__init__(base_url=BASE, timeout=120)
+    def __init__(self, ip: str | None = None):
+        # ip: connect from another local address to act as "another computer" (127.0.0.2, ...)
+        super().__init__(base_url=BASE, timeout=120, transport=httpx.HTTPTransport(local_address=ip) if ip else None)
 
     def request(self, method, url, *a, **kw):
         if isinstance(url, str) and url.startswith("/api/"):
@@ -72,8 +73,8 @@ def app():
 class Api:
     """Small helper that sends the CSRF token like the frontend does."""
 
-    def __init__(self, app=None, login: bool = True, **login_extra):
-        self.c = Client()
+    def __init__(self, app=None, login: bool = True, ip: str | None = None, **login_extra):
+        self.c = Client(ip)
         self.csrf = ""
         if login:
             r = self.c.post("/api/auth/login", json={**ADMIN, **login_extra})

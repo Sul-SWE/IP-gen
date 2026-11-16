@@ -38,32 +38,50 @@ def test_csrf_token_is_required_for_changes(admin):
 
 def test_only_one_admin_at_a_time(app):
     first = Api(app)
-    second = Api(app, login=False)
-    r = second.c.post("/api/auth/login", json=ADMIN)
+    other_pc = Api(app, login=False, ip="127.0.0.2")
+    r = other_pc.c.post("/api/auth/login", json=ADMIN)
     assert r.status_code == 409 and r.json()["error"] == "admin_busy" and r.json()["last_seen"]
     assert first.preview(1).status_code == 200                               # the first admin is not disturbed
-    r = second.c.post("/api/auth/login", json={**ADMIN, "force": True})      # explicit take-over
+    r = other_pc.c.post("/api/auth/login", json={**ADMIN, "force": True})    # explicit take-over
     assert r.status_code == 200
-    second.csrf = r.json()["csrf"]
+    other_pc.csrf = r.json()["csrf"]
     gone = first.preview(1)
     assert gone.status_code == 401 and gone.json()["error"] == "session_replaced"
     assert first.save(1, signature="x").status_code == 401                   # the replaced session can no longer write
-    assert second.save(1).status_code == 201
+    assert other_pc.save(1).status_code == 201
 
 
-def test_same_browser_signs_in_again_without_take_over(app):
-    a = Api(app)
-    r = a.c.post("/api/auth/login", json=ADMIN)          # same cookie: a second tab of the same admin
+def test_same_computer_is_never_another_admin(app):
+    tab = Api(app)
+    r = tab.c.post("/api/auth/login", json=ADMIN)                            # second tab, same browser
     assert r.status_code == 200
-    a.csrf = r.json()["csrf"]
-    assert a.preview(1).status_code == 200
-    assert Api(app, login=False).c.post("/api/auth/login", json=ADMIN).status_code == 409   # a different browser is still stopped
+    tab.csrf = r.json()["csrf"]
+    other_browser = Api(app)                                                 # another browser on the same computer: no warning
+    assert other_browser.preview(1).status_code == 200
+    assert tab.preview(1).json()["error"] == "session_replaced"              # still one session at a time
+    leftover = Api(app, login=False, ip="127.0.0.2")
+    assert leftover.c.post("/api/auth/login", json=ADMIN).status_code == 409
+
+
+def test_sign_out_clears_this_computer(app):
+    a = Api(app)
+    Api(app)                                                                 # a forgotten sign-in in another browser
+    assert a.post("/auth/logout").status_code == 200
+    assert sql("SELECT COUNT(*) FROM sessions")[0][0] == 0
+    assert Api(app, login=False, ip="127.0.0.2").c.post("/api/auth/login", json=ADMIN).status_code == 200
+
+
+def test_old_or_duplicate_cookies_do_not_confuse_sign_in(app):
+    a = Api(app)
+    a.c.cookies.set("ipgen_session", "left-by-an-old-version", domain="127.0.0.1", path="/")
+    a.c.cookies.set("ipgen_sid", "stale-token", domain="127.0.0.1", path="/api/")
+    assert a.get("/auth/me").json()["role"] == "admin" and a.preview(1).status_code == 200
 
 
 def test_idle_admin_does_not_block_sign_in(app):
     Api(app)
     _age_sessions(app, 6)
-    assert Api(app, login=False).c.post("/api/auth/login", json=ADMIN).status_code == 200
+    assert Api(app, login=False, ip="127.0.0.2").c.post("/api/auth/login", json=ADMIN).status_code == 200
 
 
 def test_expired_session(app):

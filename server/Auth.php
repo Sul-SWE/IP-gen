@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 final class Auth
 {
-    public const COOKIE = 'ipgen_session';
+    public const COOKIE = 'ipgen_sid';   // renamed from ipgen_session so cookies left by older versions are ignored
 
     private static function sid(string $token): string { return hash('sha256', $token); }
     private static function token(int $bytes = 32): string { return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '='); }
@@ -54,10 +54,11 @@ final class Auth
             $db->q('DELETE FROM sessions WHERE last_seen < ?', [self::ago($db, 2 * 86400)]);
             $live = $db->all("SELECT * FROM sessions WHERE ended_reason = '' AND last_seen >= ?", [self::ago($db, (int)$cfg['session_hours'] * 3600)]);
             $idleLimit = self::ago($db, (int)$cfg['admin_idle_minutes'] * 60);
-            $busy = array_filter($live, fn($s) => $s['last_seen'] >= $idleLimit);
+            // the same computer is the same person: only an admin active on ANOTHER computer blocks the sign-in
+            $busy = array_filter($live, fn($s) => $s['last_seen'] >= $idleLimit && $s['ip'] !== substr($ip, 0, 45));
             if ($busy && !$force) {
                 $last = max(array_map(fn($s) => $s['last_seen'], $busy));
-                throw new ApiError(409, 'admin_busy', 'Another admin is signed in right now. Only one admin can work at a time, so that two people never change the data together.',
+                throw new ApiError(409, 'admin_busy', 'Another admin is signed in right now on another computer. Only one admin can work at a time, so that two people never change the data together.',
                     [], ['last_seen' => substr($last, 0, 16)]);
             }
             $db->q("UPDATE sessions SET ended_reason = 'replaced' WHERE ended_reason = ''");
@@ -76,7 +77,7 @@ final class Auth
         $s = $db->one('SELECT * FROM sessions WHERE id = ?', [self::sid($token)]);
         if (!$s) { return null; }
         if ($s['ended_reason'] !== '') {
-            throw new ApiError(401, 'session_replaced', 'Another admin signed in, so this session was ended. Sign in again to continue.');
+            throw new ApiError(401, 'session_replaced', 'This session was ended because the admin signed in again (another tab, browser or computer). Sign in again to continue.');
         }
         if ($s['last_seen'] < self::ago($db, (int)$cfg['session_hours'] * 3600)) {
             $db->q('DELETE FROM sessions WHERE id = ?', [$s['id']]);
@@ -88,9 +89,11 @@ final class Auth
         return $s;
     }
 
-    public static function logout(Db $db, ?string $token): void
+    /** Sign out: ends this session and every other sign-in from the same computer, so nothing is left behind. */
+    public static function logout(Db $db, ?string $token, string $ip): void
     {
         if ($token) { $db->q('DELETE FROM sessions WHERE id = ?', [self::sid($token)]); }
+        $db->q('DELETE FROM sessions WHERE ip = ?', [substr($ip, 0, 45)]);
     }
 
     public static function csrfOk(array $s, ?string $header): bool { return $header !== null && $header !== '' && hash_equals($s['csrf'], $header); }

@@ -57,13 +57,33 @@ final class Api
 
     private function ip(): string { return (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'); }
 
-    private function cookie(): ?string { return isset($_COOKIE[Auth::COOKIE]) && is_string($_COOKIE[Auth::COOKIE]) ? $_COOKIE[Auth::COOKIE] : null; }
+    /** Every value the browser sent for the sign-in cookie (a browser may hold more than one, e.g. for different paths). */
+    private function cookies(): array
+    {
+        $out = [];
+        foreach (explode(';', (string)($_SERVER['HTTP_COOKIE'] ?? '')) as $part) {
+            $kv = explode('=', trim($part), 2);
+            if (count($kv) === 2 && $kv[0] === Auth::COOKIE && $kv[1] !== '') { $out[] = urldecode($kv[1]); }
+        }
+        if (!$out && isset($_COOKIE[Auth::COOKIE]) && is_string($_COOKIE[Auth::COOKIE])) { $out[] = $_COOKIE[Auth::COOKIE]; }
+        return array_values(array_unique($out));
+    }
+
+    private function cookie(): ?string { return $this->cookies()[0] ?? null; }
 
     private function optionalAdmin(): ?array
     {
         if (!$this->sessionLoaded) {
             $this->sessionLoaded = true;
-            $this->session = Auth::session($this->db(), $this->cfg(), $this->cookie());
+            // use the first cookie that belongs to a live session; report "session replaced" only if none is live
+            $replaced = null;
+            foreach ($this->cookies() as $token) {
+                try {
+                    $this->session = Auth::session($this->db(), $this->cfg(), $token);
+                } catch (ApiError $e) { $replaced = $e; continue; }
+                if ($this->session !== null) { break; }
+            }
+            if ($this->session === null && $replaced !== null) { throw $replaced; }
         }
         return $this->session;
     }
@@ -324,10 +344,7 @@ final class Api
     private function login(): array
     {
         $b = $this->body(['username' => ['str', 'min' => 1, 'max' => 40], 'password' => ['str', 'min' => 1, 'max' => 200], 'force' => ['bool', 'default' => false]]);
-        // signing in again from the same browser (e.g. a second tab) is the same person, not another admin
-        $same = false;
-        try { $same = Auth::session($this->db(), $this->cfg(), $this->cookie()) !== null; } catch (ApiError $e) { $same = false; }
-        [$token, $csrf] = Auth::login($this->db(), $this->cfg(), $b['username'], $b['password'], $this->ip(), $b['force'] || $same);
+        [$token, $csrf] = Auth::login($this->db(), $this->cfg(), $b['username'], $b['password'], $this->ip(), $b['force']);
         $this->setCookie($token, (int)$this->cfg()['session_hours'] * 3600);
         return ['role' => 'admin', 'csrf' => $csrf];
     }
@@ -335,7 +352,8 @@ final class Api
     private function logout(): array
     {
         $this->cfg();
-        Auth::logout($this->db(), $this->cookie());
+        foreach ($this->cookies() as $t) { Auth::logout($this->db(), $t, $this->ip()); }
+        if (!$this->cookies()) { Auth::logout($this->db(), null, $this->ip()); }
         $this->setCookie('', -1);
         return ['ok' => true];
     }

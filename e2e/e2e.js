@@ -166,19 +166,20 @@ const ok = (name, cond, detail) => { if (!cond) failed++; console.log((cond ? 'P
   await p.fill('#q', '<img src=x onerror="window.__xss=1">'); await W(700);
   ok('markup in search is shown as text, never run', (await p.evaluate(() => window.__xss)) === undefined && /No records match/.test(await text('#t')));
 
-  /* ---------- only one admin at a time ---------- */
+  /* ---------- sign out, then sign in again (same computer: never "another admin") ---------- */
+  await go('index.html');
+  await p.click('#outBtn'); await W(900);
+  ok('sign out turns the page into viewer mode', (await p.$$eval('#nav a', a => a.length)) === 2);
+  await go('login.html'); await p.fill('#u', USER); await p.fill('#p', PASS); await p.click('#go'); await W(900);
+  ok('signing in again after sign out works without any warning', (await p.$$eval('#nav a', a => a.length)) === 5, p.url());
   const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const p2 = await ctx2.newPage(); watch(p2, 'admin2');
-  await p2.goto(BASE + 'login.html'); await p2.fill('#u', USER); await p2.fill('#p', PASS); await p2.click('#go'); await p2.waitForTimeout(700);
-  ok('second admin is told someone is signed in', /Another admin is signed in/.test(await p2.textContent('#msg')), await p2.textContent('#msg'));
-  if (SHOTS) await p2.screenshot({ path: path.join(SHOTS, '13-admin-busy.png') });
-  await p2.click('#force'); await p2.waitForTimeout(900);
-  ok('take-over signs the second admin in', /index\.html/.test(p2.url()) && (await p2.$$eval('#nav a', a => a.length)) === 5);
-  await p.fill('#q', 'UTMN'); await W(900);
-  ok('the first admin is signed out and told why', /login\.html\?reason=session_replaced/.test(p.url()) && /Another admin signed in/.test(await text('#msg')), p.url());
+  await p2.goto(BASE + 'login.html'); await p2.fill('#u', USER); await p2.fill('#p', PASS); await p2.click('#go'); await p2.waitForTimeout(900);
+  ok('another browser on the same computer signs in directly', /index\.html/.test(p2.url()) && (await p2.$$eval('#nav a', a => a.length)) === 5, p2.url());
   await ctx2.close();
-  await p.fill('#u', USER); await p.fill('#p', PASS); await p.click('#go'); await W(900);
-  if (/Another admin/.test(await text('#msg').catch(() => ''))) { await p.click('#force'); await W(900); }
+  await p.fill('#q', 'x').catch(() => {}); await go('management.html', 900);
+  ok('the older session on this computer was ended and sent to sign-in (one admin session at a time)', /login\.html\?reason=session_replaced/.test(p.url()) && /signed in again/.test(await text('#msg')), p.url());
+  await go('login.html'); await p.fill('#u', USER); await p.fill('#p', PASS); await p.click('#go'); await W(900);
 
   /* ---------- layout at laptop, tablet and phone ---------- */
   const arabic = /[٠-٩۰-۹]/;

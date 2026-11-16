@@ -3,7 +3,7 @@
   var q = new URLSearchParams(location.search), next = q.get('next') || 'index.html';
   if (!/^[a-z]+\.html(#[a-z]+)?$/.test(next)) next = 'index.html';       // never redirect outside the tool
   var reasons = {
-    session_replaced: ['Another admin signed in, so your session was ended. Sign in again to continue.', 'warn'],
+    session_replaced: ['Your session was ended because the admin signed in again (another tab, browser or computer). Sign in again to continue.', 'warn'],
     expired: ['Your session ended. Sign in again to continue.', 'info'],
     login_required: ['Sign in as admin to open that page.', 'info']
   };

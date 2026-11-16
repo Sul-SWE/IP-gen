@@ -18,7 +18,7 @@ var API = {
         var err = data && data.error ? data : { error: 'http', message: 'The server answered with an error (' + res.status + ').', details: [] };
         err.status = res.status;
         if (err.error === 'setup_required' && !/setup\.html/.test(location.pathname)) { location.replace('setup.html'); }
-        if (res.status === 401 && API.role === 'admin' && (err.error === 'session_replaced' || err.error === 'login_required')) {
+        if (err.error === 'session_replaced' || (res.status === 401 && API.role === 'admin' && err.error === 'login_required')) {
           API.signedOut(err.error);   // the admin session ended: go to the sign-in page
         }
         throw err;
