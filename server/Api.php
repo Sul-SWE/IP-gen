@@ -14,7 +14,6 @@ final class Api
     private bool $sessionLoaded = false;
     private string $method;
     private string $path;
-    private string $base;
 
     public function __construct()
     {
@@ -26,8 +25,6 @@ final class Api
             $path = str_starts_with($uri, $script) ? substr($uri, strlen($script)) : '';
         }
         $this->path = '/' . trim($path, '/');
-        $dir = rtrim(str_replace('\\', '/', dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php'))), '/');
-        $this->base = $dir . '/';
     }
 
     /* ------------------------------------------------------------ plumbing */
@@ -83,7 +80,8 @@ final class Api
 
     private function setCookie(string $value, int $maxAge): void
     {
-        setcookie(Auth::COOKIE, $value, ['expires' => $maxAge > 0 ? time() + $maxAge : time() - 3600, 'path' => $this->base,
+        // path '/': works whatever the folder is called (spaces, brackets, Arabic letters ...)
+        setcookie(Auth::COOKIE, $value, ['expires' => $maxAge > 0 ? time() + $maxAge : time() - 3600, 'path' => '/',
             'httponly' => true, 'samesite' => 'Strict', 'secure' => (bool)($this->cfg['cookie_secure'] ?? false)]);
     }
 
