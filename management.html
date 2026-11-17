@@ -12,20 +12,23 @@
 <main>
   <div class="pagehead">
     <div><h1>IP Management</h1><p>Search, modify, delete and restore records. Every change is written to the change log with your name.</p></div>
-    <div class="tabs" role="tablist" aria-label="Lists">
-      <button type="button" role="tab" id="t_active">Records</button><button type="button" role="tab" id="t_trash">Trash</button><button type="button" role="tab" id="t_log">Change log</button>
-    </div>
+    <div class="qa"><a class="btn primary" href="generate.html">+ New facility</a></div>
   </div>
-  <div class="panel" style="padding:10px 14px">
+  <div class="panel bar-panel">
     <div class="toolbar">
-      <div class="field q"><label for="q">Search</label><input id="q" type="search" maxlength="60" placeholder="Name, IP, GCP, vendor, engineer..." autocomplete="off"></div>
+      <div class="tabs" role="tablist" aria-label="Lists">
+        <button type="button" role="tab" id="t_active">Records</button><button type="button" role="tab" id="t_trash">Trash</button><button type="button" role="tab" id="t_log">Change log</button>
+      </div>
+      <div class="field q"><label for="q">Search</label><div class="search"><input id="q" type="search" maxlength="60" placeholder="Name, IP, GCP, vendor, engineer..." autocomplete="off"></div></div>
       <div class="field s" id="critBox"><label for="crit">Search in</label><select id="crit"></select></div>
-      <span class="sp"></span><small id="count" aria-live="polite"></small>
+      <span class="sp"></span><span class="count" id="count" aria-live="polite"></span>
     </div>
   </div>
   <div id="msg" class="msg"></div>
-  <div class="tw"><table id="t" class="cards"><tbody><tr><td><div class="skel" style="width:60%"></div><div class="skel"></div></td></tr></tbody></table></div>
-  <div class="tfoot"><span id="tnote"></span><span id="more"></span></div>
+  <div class="tcard">
+    <div class="tw"><table id="t" class="cards"><tbody><tr><td><div class="skel" style="width:60%"></div><div class="skel"></div></td></tr></tbody></table></div>
+    <div class="tfoot"><span id="tnote"></span><span id="more"></span></div>
+  </div>
 </main>
 <script src="js/util.js"></script><script src="js/api.js"></script><script src="js/common.js"></script><script src="js/pages/management.js"></script>
 </body>

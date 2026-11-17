@@ -1,14 +1,4 @@
-# settings with the MySQL password (created by the setup page) and runtime files
+# created by the setup page: holds the MySQL password, never commit it
 server/config.php
+# runtime files (import previews, error log)
 server/storage/
-# local tools
-.env
-*.db
-__pycache__/
-*.pyc
-.pytest_cache/
-.ruff_cache/
-.venv/
-venv/
-node_modules/
-test-results/

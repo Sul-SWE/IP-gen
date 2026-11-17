@@ -89,27 +89,6 @@ final class Rules
         $db->q('INSERT INTO settings (name, value) VALUES (?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)', [$name, $value]);
     }
 
-    /* ------------------------------------------------------------ seeding (first setup only) */
-    public static function seedDefaults(Db $db): bool
-    {
-        $d = require __DIR__ . '/defaults.php';
-        $db->q("INSERT IGNORE INTO settings (name, value) VALUES ('write_lock', '1')");
-        foreach ($d['settings'] as $k => $v) { $db->q('INSERT IGNORE INTO settings (name, value) VALUES (?, ?)', [$k, $v]); }
-        if ($db->value('SELECT id FROM gcp_rings LIMIT 1') !== null || $db->value('SELECT id FROM vendors LIMIT 1') !== null) { return false; }
-        foreach ($d['facilities'] as $code) { $db->q('INSERT INTO facilities (code, active) VALUES (?, 1)', [$code]); }
-        $vendors = [];
-        foreach ($d['vendors'] as $v) {
-            $id = $db->insert('INSERT INTO vendors (name, capacity, octets, fields, active) VALUES (?, ?, ?, ?, 1)', [$v['name'], $v['capacity'], jenc($v['octets']), jenc($v['fields'])]);
-            $vendors[] = ['id' => $id] + $v + ['active' => true];
-        }
-        foreach ($d['gcp_rings'] as [$code, $o1, $o2, $rv, $pv]) {
-            $gid = $db->insert('INSERT INTO gcp_rings (code, octet1, octet2, rtu_vlan, plc_vlan, active) VALUES (?, ?, ?, ?, ?, 1)', [$code, $o1, $o2, $rv, $pv]);
-            $g = ['id' => $gid, 'code' => $code, 'octet1' => $o1, 'octet2' => $o2, 'rtu_vlan' => $rv, 'plc_vlan' => $pv, 'active' => true];
-            foreach ($vendors as $v) { self::createBlock($db, $g, $v, $v['octets'], 'active'); }
-        }
-        return true;
-    }
-
     /* ------------------------------------------------------------ blocks */
     private static function usedOctets(array $v, array $octets): array
     {

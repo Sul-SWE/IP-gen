@@ -313,14 +313,15 @@ final class Api
                 : (str_contains($msg, '2002') || str_contains($msg, 'refused') ? 'MySQL is not running or the server/port is wrong. In XAMPP, press Start next to MySQL.' : 'MySQL refused the connection.');
             throw ApiError::bad("Could not connect to MySQL. $hint", [preg_replace('/\s+/', ' ', substr($msg, 0, 200))], 'db_connect');
         }
-        foreach (array_filter(array_map('trim', explode(';', preg_replace('/--[^\n]*/', '', file_get_contents(__DIR__ . '/schema.sql'))))) as $sql) {
+        // database/ipgen.sql: the tables and the starting rules (safe to run again: nothing is duplicated)
+        $sqlFile = dirname(__DIR__) . '/database/ipgen.sql';
+        foreach (array_filter(array_map('trim', explode(';', preg_replace('/--[^\n]*/', '', (string)file_get_contents($sqlFile))))) as $sql) {
             $db->pdo->exec($sql);
         }
         $existing = (int)$db->value('SELECT COUNT(*) FROM accounts');
-        $db->write(function (Db $db) use ($b, $existing) {
-            Rules::seedDefaults($db);
-            if (!$existing) { $db->q("INSERT INTO accounts (username, password_hash, role, active) VALUES ('admin', ?, 'admin', 1)", [Auth::hash($b['admin_password'])]); }
-        });
+        if (!$existing) {
+            $db->q("INSERT INTO accounts (username, password_hash, role, active) VALUES ('admin', ?, 'admin', 1)", [Auth::hash($b['admin_password'])]);
+        }
         $config = (require __DIR__ . '/config.example.php');
         $config['db'] = $c;
         $php = "<?php\n// Created by the setup page. Keep it private: it contains the MySQL password. Delete it to run setup again.\nreturn " . var_export($config, true) . ";\n";

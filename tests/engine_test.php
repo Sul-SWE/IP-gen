@@ -11,7 +11,21 @@ function t(string $name, bool $ok, string $detail = ''): void
     echo ($ok ? 'PASS ' : 'FAIL ') . $name . ($ok || $detail === '' ? '' : " :: $detail") . "\n";
 }
 
-$d = require __DIR__ . '/../server/defaults.php';
+// the starting rules of database/ipgen.sql (dummy test values from the SRS)
+$f = fn(string $field, string $net, int $a, int $b) => ['field' => $field, 'net' => $net, 'a' => $a, 'b' => $b];
+$d = [
+    'facilities' => ['UTMN', 'HRDH', 'HWYH', 'SDGM'],
+    'gcp_rings' => [['HDGCP1-R1', 18, 1, '1800', '1801'], ['SHGCP1-R1', 19, 1, '1810', '1811'], ['HWGCP1-R1', 20, 1, '1820', '1821'], ['UTGCP1-R1', 21, 1, '1830', '1831']],
+    'vendors' => [
+        ['name' => 'Yokogawa', 'capacity' => 39, 'octets' => ['A' => 20, 'B' => 21, 'M' => 10], 'fields' => [
+            $f('RTU IP-1', 'A', 1, 168), $f('RTU IP-2', 'B', 1, 168), $f('PLC IP-1', 'A', 1, 84), $f('PLC IP-2', 'B', 1, 84),
+            $f('RTU Internal IP-1', 'A', 1, 0), $f('RTU Internal IP-2', 'B', 1, 0), $f('RTU-HMI IP', 'A', 1, 210), $f('IES Moxa IP', 'M', 1, 0),
+            $f('Engg. Laptop IP', 'A', 0, 250), $f('Gateway-1', 'A', 0, 253), $f('Gateway-2', 'B', 0, 253)]],
+        ['name' => 'Honeywell', 'capacity' => 62, 'octets' => ['A' => 100, 'B' => 101, 'M' => 11], 'fields' => [
+            $f('RTU IP-1', 'A', 4, -3), $f('RTU IP-2', 'A', 4, -2), $f('PLC IP-1', 'A', 4, -1), $f('PLC IP-2', 'A', 4, 0),
+            $f('RTU-HMI IP', 'B', 1, 0), $f('IES Moxa IP', 'M', 1, 0), $f('Engg. Laptop IP', 'A', 0, 250), $f('Gateway-1', 'A', 0, 253), $f('Gateway-2', 'B', 0, 253)]],
+    ],
+];
 function vrule(array $d, string $name): array { foreach ($d['vendors'] as $v) { if ($v['name'] === $name) { return ['name' => $v['name'], 'capacity' => $v['capacity'], 'fields' => $v['fields']]; } } throw new Exception($name); }
 function blk(array $d, string $gcp, string $vendor, ?int $o2 = null): array
 {

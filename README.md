@@ -1,69 +1,84 @@
 # IP Address Auto-Generator and Management Platform
 
-Generates, checks and tracks the IP addresses of RTU / PLC devices from fixed rules, instead of typing them by hand in Excel.
-**All rules and addresses in this repository are dummy test values.** Always verify a real IP in the field (ping / arp) before using it.
+A web tool that generates, checks and tracks the IP addresses of RTU / PLC devices from fixed rules, instead of typing them by hand in Excel.
+It prevents duplicate IPs, shows how full every address range is, and keeps a change log.
+**All rules and addresses here are dummy test values.** Always verify a real IP in the field (ping / arp) before using it.
 
-| Part | Technology |
-|---|---|
-| Pages (project root) | HTML, CSS, JavaScript (no framework) |
-| Server (`api/`, `server/`) | PHP 8.0+ (no Composer, no extra libraries) |
-| Database | MySQL / MariaDB (the one in XAMPP works) |
-| Excel | read and written by the server in plain PHP (`.xlsx`) |
-| `prototype/` | the earlier browser-only prototype, kept as reference |
+**Technology:** HTML, CSS, JavaScript and Chart.js (pages) · PHP 8 (server) · MySQL / MariaDB (database) · runs on **XAMPP**.
 
-## Who uses it
+## Run it (XAMPP)
+1. XAMPP Control Panel: **Start** Apache and MySQL.
+2. Copy this folder to `C:\xampp\htdocs\IP-gen`.
+3. Open **http://localhost/IP-gen/**.
+4. First time only, the setup page opens: MySQL user `root`, password empty, database `ipgen`, and a password for the website admin.
+5. Sign in with user **admin** and that password.
+
+## How it works
+```
+Browser (pages)  -->  api/index.php (PHP)  -->  MySQL
+HTML/CSS/JS          rules and checks          the data
+```
+1. A page (for example IP Generation) sends a request to `api/index.php`.
+2. PHP reads the used addresses from MySQL and applies the rules (first free host number).
+3. The result goes back to the page. On **Save**, PHP checks everything again before writing, so an IP can never repeat.
+
+## Users
 - **Viewer**: opens the site and sees the Dashboard and the Worksheet. No sign-in, read only.
-- **Admin**: signs in (user `admin`) to generate, modify, delete, import/export and change the rules.
-  **Only one admin can be signed in at a time**; a second sign-in is told so and may take over (the first session ends).
-  Because the account is shared, each engineer types their own name; it is written to the change log with every change.
+- **Admin** (user `admin`): generates, modifies, deletes, imports/exports and changes the rules. Only one admin works at a time;
+  each engineer types their own name, which is written to the change log.
 
-## Run it with XAMPP (Windows)
-1. Open the **XAMPP Control Panel** and press **Start** next to **Apache** and **MySQL**.
-2. Copy the project folder into `C:\xampp\htdocs\` so that you have `C:\xampp\htdocs\IP-gen\index.html`.
-3. Open **http://localhost/IP-gen/** in the browser.
-4. The first time, the **setup page** opens: MySQL user `root`, password empty (XAMPP default), database `ipgen`,
-   then choose the website admin password. It creates the database, the tables, the default (dummy) rules and the admin account,
-   and saves `server/config.php`.
-5. Sign in with user **admin** and the password you chose.
+## Project files
+| Path | What it is |
+|---|---|
+| `index.html` | Dashboard: numbers, address ranges, charts |
+| `generate.html` | IP Generation: form, preview, save |
+| `management.html` | IP Management: search, modify, delete, restore, change log |
+| `worksheet.html` | Worksheet: full table, Excel import / export |
+| `settings.html` | Admin panel: GCP & Rings, address blocks, vendors, facilities, password |
+| `login.html`, `setup.html` | Admin sign-in, first-time setup |
+| `css/style.css` | The look of every page |
+| `js/util.js`, `js/api.js`, `js/common.js` | Shared helpers, the connection to the server, the page frame (menu, dialogs) |
+| `js/pages/*.js` | The behaviour of each page (one file per page) |
+| `lib/chart.umd.min.js` | Chart.js library used by the dashboard charts |
+| `api/index.php` | The single entry point of the server: every request from the pages comes here |
+| `server/Api.php` | Routes and input checks: which request does what |
+| `server/Engine.php` | **The rules**: builds the addresses, finds the first free host number, checks Excel rows |
+| `server/Records.php` | Create, modify, delete to trash, restore, delete forever, search |
+| `server/Rules.php` | GCP & Rings, vendors, facilities and address blocks (the Settings page) |
+| `server/Importer.php`, `server/Xlsx.php` | Excel import (preview, confirm, undo) and export |
+| `server/Dashboard.php` | The numbers for the dashboard |
+| `server/Auth.php` | Admin sign-in, one admin at a time, protection of requests |
+| `server/Db.php`, `server/bootstrap.php` | Database connection; loading of the server files |
+| `server/config.example.php` | Layout of `config.php`, which the setup page creates (MySQL login) |
+| `database/ipgen.sql` | **The database**: all tables and the starting rules |
+| `database/sample-data.xlsx` | Sample sheet to try the import (10 rows added, 3 rejected on purpose) |
+| `tests/engine_test.php` | Automatic check of the rules (28 tests): `php tests/engine_test.php` |
+| `.htaccess` (root, `server/`, `database/`, `tests/`) | Security: server files, settings and tests can never be opened from the browser |
 
-Next time: start Apache and MySQL in XAMPP, then open http://localhost/IP-gen/.
-To run setup again (for example a new MySQL password), delete `server/config.php`. Existing data is kept.
+## Database (`database/ipgen.sql`)
+| Table | Holds |
+|---|---|
+| `records` | One row per facility (name, GCP & Ring, vendor, engineer, date, status active / trash) |
+| `ip_assignments` | The IPs of each record. A UNIQUE column makes a duplicate device IP impossible |
+| `gcp_rings`, `vendors`, `blocks`, `block_octets`, `facilities` | The rules (changed from the Settings page) |
+| `audit_log` | The change log (who, what, when) |
+| `accounts`, `sessions`, `login_failures` | Admin sign-in |
+| `settings` | Warning level, subnet mask, last import |
 
-Other web servers: any Apache with PHP 8.0+ and `AllowOverride All` (for the `.htaccess` files) works.
-Without Apache: `php -S localhost:8000 server/dev-router.php` in the project folder, then open http://localhost:8000.
-To let colleagues on the same network use it, give them `http://YOUR-PC-NAME/IP-gen/` (ask IT first; use HTTPS and
-`'cookie_secure' => true` in `server/config.php` on a real server).
+The setup page runs this file automatically. It can also be imported by hand in phpMyAdmin.
 
-## Everyday use
-- **Dashboard**: free host numbers per GCP & Ring and vendor, the next host and RTU IP-1 each range will give, facilities by area.
-- **IP Generation**: Generate shows a preview only. Save re-checks everything on the server; if anything changed meanwhile, nothing is saved and a new preview is shown.
-- **IP Management**: search, Modify (shows old vs new IPs before saving), Delete (to Trash: name and IPs stay reserved), Restore, Delete forever, Change log.
-- **Worksheet**: the full table; Export Excel; Import Excel in two steps (preview, then confirm); Undo last import.
-- **Settings** (admin panel): add GCP & Rings, plan and activate address blocks, add vendors and facilities, warning level, admin password.
+## How duplicates are prevented
+1. **First free host number:** the engine skips every number whose IPs are already used (active records and records in the trash).
+2. **Check again on Save:** if anything changed since the preview, nothing is saved and a new preview is shown.
+3. **One change at a time:** every change locks the data briefly, so two saves can never take the same number.
+4. **Database rule:** the `ip_assignments.uniq_ip` column is UNIQUE, so MySQL itself refuses a duplicate.
 
-### Address blocks
-New facilities always come from the **active block** of a GCP & Ring + vendor. When it is full, generation stops; nothing overflows by itself.
-Plan the next block in Settings, prepare the network, then press **Activate now**: the old block becomes *retired* (its addresses stay reserved).
-
-### Import rules (each row is checked on its own)
-Name format or placeholder (`Used`, `unknown`, `-`, empty); name and device IPs unique against active rows, trashed rows and earlier rows of the same file,
-in any column; IPv4 octets 0-255 (leading zeros normalised); no device on a gateway/laptop address or on the network/broadcast address; valid mask; VLAN 1-4094.
-Import only adds rows and never changes existing records. Unknown or empty extra columns and other sheets (for example "Backend") are ignored.
+## Address blocks
+Every GCP & Ring + vendor has an **active block** of host numbers. When it is full, generation stops (no automatic overflow).
+The admin plans the next block in Settings, prepares the network, then presses **Activate now**; the old block is retired and its addresses stay reserved.
 
 ## Backup
-Export Excel regularly (Worksheet page). Full database backup: phpMyAdmin (http://localhost/phpmyadmin) > database `ipgen` > Export,
-or `C:\xampp\mysql\bin\mysqldump -u root ipgen > ipgen-backup.sql`.
+Worksheet > **Export Excel**, or phpMyAdmin > database `ipgen` > Export.
 
-## Tests
-- Engine: `php tests/engine_test.php` (28 tests).
-- API (49 tests, Python + pytest, server running with `php -S 127.0.0.1:8030 server/dev-router.php`):
-  `pip install pytest httpx pymysql openpyxl` then `pytest tests/api` (settings: `PHP_BASE`, `TEST_DB_USER`, `TEST_DB_PASS`, `TEST_DB_NAME`).
-- Browser (Node + Playwright, no `server/config.php`, empty database):
-  `BASE=http://localhost/IP-gen/ ADMIN_PASS=... DB_USER=root DB_PASS= DB_NAME=ipgen_e2e node e2e/e2e.js`
-
-## Safety rules for this repository
-- Never commit real IPs, device names, rules or screenshots. Real rules are entered in **Settings** and live only in your database.
-- Never commit `server/config.php` (it holds the MySQL password; already in `.gitignore`).
-
-More: [docs/architecture.md](docs/architecture.md), [docs/api.md](docs/api.md), [docs/decisions.md](docs/decisions.md).
-The earlier Python (FastAPI) server is in the git history (commit `c0c5440`).
+## Never commit
+Real IPs, device names or rules, and `server/config.php` (it holds the MySQL password; already in `.gitignore`).

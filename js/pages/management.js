@@ -71,8 +71,8 @@ function draw() {
     : '<th>Facility Name</th><th>GCP &amp; Ring</th><th>Vendor</th><th>Date</th><th>Engineer</th><th>RTU IP-1</th><th>PLC IP-1</th><th></th>';
   $('#t').innerHTML = '<thead><tr>' + head + '</tr></thead><tbody>' + (items.map(function (r) {
     var id = +r.id, cells = trash
-      ? td('Facility', r.name) + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Deleted on', r.deleted_at) + td('Deleted by', r.deleted_by) + td('RTU IP-1', r.ips['RTU IP-1'], 'ip')
-      : td('Facility', r.name) + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Date', r.date) + td('Engineer', r.engineer) + td('RTU IP-1', r.ips['RTU IP-1'], 'ip') + td('PLC IP-1', r.ips['PLC IP-1'], 'ip');
+      ? td('Facility', r.name, 'strong') + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Deleted on', r.deleted_at) + td('Deleted by', r.deleted_by) + td('RTU IP-1', r.ips['RTU IP-1'], 'ip')
+      : td('Facility', r.name, 'strong') + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Date', r.date) + td('Engineer', r.engineer) + td('RTU IP-1', r.ips['RTU IP-1'], 'ip') + td('PLC IP-1', r.ips['PLC IP-1'], 'ip');
     var acts = '<button class="sm ghost" data-a="ips" data-id="' + id + '" aria-expanded="' + !!openIds[id] + '">IPs ' + (openIds[id] ? '&#9652;' : '&#9662;') + '</button>' + (trash
       ? '<button class="sm" data-a="restore" data-id="' + id + '">Restore</button><button class="sm danger" data-a="purge" data-id="' + id + '">Delete forever</button>'
       : '<button class="sm" data-a="edit" data-id="' + id + '">Modify</button><button class="sm danger" data-a="del" data-id="' + id + '">Delete</button>');

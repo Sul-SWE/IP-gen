@@ -2,15 +2,18 @@
 Options -Indexes
 DirectoryIndex index.html
 
+# security headers for the pages and files (PHP sets its own for api/index.php)
 <IfModule mod_headers.c>
-  Header always set X-Content-Type-Options "nosniff"
-  Header always set X-Frame-Options "DENY"
-  Header always set Referrer-Policy "no-referrer"
+  <FilesMatch "\.(html|css|js|md)$">
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set Referrer-Policy "no-referrer"
+  </FilesMatch>
   <FilesMatch "\.html$">
     Header set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
     Header set Cache-Control "no-cache"
   </FilesMatch>
 </IfModule>
 
-# hidden files (.git, .env ...) are never served
+# hidden files (.git, .htaccess ...) are never served
 RedirectMatch 404 /\.
