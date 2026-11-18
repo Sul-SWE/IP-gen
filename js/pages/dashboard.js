@@ -13,7 +13,7 @@ init('index').then(function () {
 function chartDefaults() {
   if (!window.Chart) return false;
   Chart.defaults.font.family = '"Segoe UI", system-ui, -apple-system, Arial, sans-serif';
-  Chart.defaults.font.size = 12;
+  Chart.defaults.font.size = window.matchMedia && matchMedia('(min-width: 1000px)').matches ? 11 : 12;   // matches the 90% page size on laptops
   Chart.defaults.color = '#6b7a71';
   Chart.defaults.borderColor = '#edf1ee';
   Chart.defaults.plugins.legend.display = false;

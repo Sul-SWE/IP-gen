@@ -67,7 +67,7 @@ function init(page) {
   var def = PAGES.filter(function (p) { return p.id === page; })[0] || { admin: false };
   document.body.insertAdjacentHTML('afterbegin', '<a class="skip" href="#main">Skip to content</a><header><a class="brand" href="index.html"><span class="logo" aria-hidden="true">IP</span>IP Generator</a><nav aria-label="Main" id="nav"></nav><span id="who"></span></header>');
   $('main').id = 'main';
-  document.body.insertAdjacentHTML('beforeend', '<footer>Dummy test rules. Always verify a real IP in the field (ping / arp) before using it.</footer><dialog id="dlg" aria-labelledby="dlgT"></dialog><datalist id="engList"></datalist>');
+  document.body.insertAdjacentHTML('beforeend', '<footer><b>IP Address Auto-Generator</b> v1.0 &middot; TSU / PAN &middot; Please confirm every IP in the field (ping) before use.</footer><dialog id="dlg" aria-labelledby="dlgT"></dialog><datalist id="engList"></datalist>');
 
   return Promise.all([API.get('/auth/me'), API.get('/config')]).then(function (r) {
     API.me = r[0]; API.role = r[0].role; API.csrf = r[0].csrf || ''; CFG = r[1];

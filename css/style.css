@@ -48,7 +48,8 @@ h2{font-size:.98rem;margin:0 0 .5rem;color:var(--brand);display:flex;align-items
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .sp{flex:1}
 hr{border:0;border-top:1px solid var(--line2);margin:16px 0}
-footer{max-width:1320px;margin:0 auto;padding:.4rem 1rem 1.2rem;text-align:center;color:var(--mut);font-size:.76rem}
+footer{max-width:1320px;margin:0 auto;padding:.6rem 1rem 1.4rem;text-align:center;color:var(--mut);font-size:.78rem}
+footer b{color:var(--brand);font-weight:600}
 
 /* ---------- toolbar (search + filters + count), used by Management and Worksheet ---------- */
 .toolbar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
@@ -120,14 +121,15 @@ button:not(.primary).busy::after{border-color:var(--g);border-top-color:transpar
 .tw.auto{max-height:none;min-height:0}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:.86rem}
 th,td{padding:.55rem .8rem;border-bottom:1px solid var(--line2);white-space:nowrap;text-align:left;vertical-align:middle}
-th{position:sticky;top:0;background:var(--head);color:var(--ink2);z-index:2;font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--g);color:#fff;z-index:2;font-weight:600;font-size:.76rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--g)}
 tbody tr:hover>td{background:var(--hover)}
 td.ip,.ip{font-family:var(--mono);font-size:.84rem;color:#1b4d33}
 td.strong,td.nm{font-weight:600;color:var(--ink)}
-td.rn,th.rn{color:var(--mut);text-align:center;width:3rem;position:sticky;left:0;z-index:1;background:#fafbfa;border-right:1px solid var(--line2)}
-th.rn{background:var(--head);z-index:3}
-td.nm,th.nm{position:sticky;left:3rem;z-index:1;background:#fff;box-shadow:1px 0 0 var(--line2)}
-th.nm{z-index:3;background:var(--head)}
+/* row number + facility name stay visible while scrolling sideways; fixed widths keep them side by side */
+td.rn,th.rn{color:var(--mut);text-align:center;width:46px;min-width:46px;max-width:46px;padding-left:0;padding-right:0;position:sticky;left:0;z-index:1;background:#fafbfa;border-right:1px solid var(--line2)}
+th.rn{background:var(--brand);border-right-color:var(--brand);z-index:3}
+td.nm,th.nm{position:sticky;left:46px;z-index:1;background:#fff;box-shadow:1px 0 0 var(--line)}
+th.nm{z-index:3;background:var(--g)}
 tbody tr:hover>td.nm,tbody tr:hover>td.rn{background:var(--hover)}
 tr.del td{color:#98a39c}tr.del td:not(.rn){text-decoration:line-through}
 td.act{text-align:right;white-space:nowrap}
@@ -272,6 +274,14 @@ body.leaving main{opacity:0;transform:translateY(4px);transition:opacity .12s,tr
 .skel{height:14px;border-radius:6px;background:linear-gradient(90deg,#edf1ee 0,#f8faf9 50%,#edf1ee 100%);background-size:400px 100%;animation:sk 1.2s linear infinite;margin:8px 0}
 button,.btn,input,select,a.cell{transition:background .15s,border-color .15s,box-shadow .15s}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ---------- laptop and desktop: everything below the top bar at 90% size ---------- */
+@media(min-width:1000px){
+  main,footer,dialog{zoom:.9}
+  .tw{max-height:calc(111vh - 330px)}
+  /* charts cancel the zoom (Chart.js needs real size to follow the mouse); their font is set smaller in dashboard.js */
+  .chart{zoom:1.1112;min-height:153px;max-height:171px}
+}
 
 /* ---------- tablet ---------- */
 @media(max-width:1100px){
