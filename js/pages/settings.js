@@ -61,7 +61,20 @@ function draw() {
     '<div class="field"><label for="pw1">New password <small>(8+ characters)</small></label><input id="pw1" type="password" autocomplete="new-password" maxlength="200"></div>' +
     '<div><button class="sm primary" type="submit">Change password</button></div></form></section>';
 
-  $('#set').innerHTML = gcpP + vendP + '<div class="dgrid half">' + facP + genP + '</div>';
+  var p = R.pmt || { fields: [], all_fields: [] };
+  var pmtP = '<section class="panel"><div class="panel-h"><h2>PMT file template</h2><span class="chip ' + (p.custom ? 'b' : 'g') + '">' + (p.custom ? 'Your uploaded template' : 'Default template') + '</span></div>' +
+    '<p class="mut small">The PMT button in IP Management (and after saving a new facility) fills this Excel template with the facility\'s addresses. ' +
+    'In any cell, write a field name in braces, for example <code>{Facility Name}</code> or <code>{RTU IP-1}</code>; everything else in the file stays as it is. ' +
+    'Uploaded templates are checked first: unknown field names are refused.</p>' +
+    '<div class="row"><button class="sm" id="pmtGet">Download current template</button><label class="btn sm primary" for="pmtFile" tabindex="0" role="button" id="pmtUp">Upload new template</label>' +
+    '<input id="pmtFile" type="file" accept=".xlsx" hidden>' + (p.custom ? '<button class="sm ghost" id="pmtReset">Use the default template</button>' : '') + '</div>' +
+    '<details class="vend" style="margin-top:12px"><summary><b>Fields</b> <span class="mut">' + p.fields.length + ' of ' + p.all_fields.length + ' used by the current template</span></summary><div class="vgrid">' +
+    p.all_fields.map(function (f) { return '<div><code>{' + esc(f) + '}</code><span>' + (p.fields.indexOf(f) >= 0 ? 'used' : '-') + '</span></div>'; }).join('') + '</div></details></section>';
+  $('#set').innerHTML = gcpP + pmtP + vendP + '<div class="dgrid half">' + facP + genP + '</div>';
+  $('#pmtGet').onclick = function () { API.download('/admin/pmt-template').then(function () {}, fail); };
+  $('#pmtUp').onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#pmtFile').click(); } };
+  $('#pmtFile').onchange = function () { var f = this.files[0]; this.value = ''; if (f) uploadPmt(f); };
+  if ($('#pmtReset')) $('#pmtReset').onclick = resetPmt;
   $('#addGcp').onclick = addGcp; $('#addVendor').onclick = addVendor;
   $('#facForm').onsubmit = addFacility; $('#warnForm').onsubmit = saveWarn; $('#pwForm').onsubmit = changePw;
 }
@@ -216,6 +229,21 @@ function addVendor() {
     last.actor = who.name;
     API.post('/admin/vendors', last).then(done('Vendor <b>' + esc(last.name) + '</b> added with a first block in every GCP &amp; Ring.'), fail);
   });
+}
+
+/* ---------- PMT template ---------- */
+function uploadPmt(f) {
+  if (!/\.xlsx$/i.test(f.name)) return msg('The template must be an Excel file (.xlsx).');
+  ask({ title: 'Use ' + f.name + ' as the PMT template?', ok: 'Upload', name: true,
+    body: '<p>From now on, the PMT button fills this file. The file is checked first; if a field name is misspelled, nothing changes.</p>' })
+  .then(function (who) {
+    if (!who) return;
+    API.upload('/admin/pmt-template', f, { actor: who.name }).then(function (r) { return load().then(function () { msg('Template saved. It fills <b>' + r.fields.length + '</b> fields.', 1); }); }, fail);
+  });
+}
+function resetPmt() {
+  ask({ title: 'Use the default PMT template again?', ok: 'Use default', name: true, body: '<p>Your uploaded template is removed and the default one is used again.</p>' })
+  .then(function (who) { if (who) API.post('/admin/pmt-template/reset', { actor: who.name }).then(done('The default PMT template is used again.'), fail); });
 }
 
 /* ---------- facilities, general ---------- */

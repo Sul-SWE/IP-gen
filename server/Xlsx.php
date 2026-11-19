@@ -36,6 +36,9 @@ final class Zip
 
     public function has(string $name): bool { return isset($this->entries[$name]); }
 
+    /** Names of all files inside the zip, in their original order. */
+    public function names(): array { return array_keys($this->entries); }
+
     public function read(string $name): string
     {
         if (!isset($this->entries[$name])) { throw new XlsxError("missing $name"); }

@@ -46,11 +46,13 @@ HTML/CSS/JS          rules and checks          the data
 | `server/Records.php` | Create, modify, delete to trash, restore, delete forever, search |
 | `server/Rules.php` | GCP & Rings, vendors, facilities and address blocks (the Settings page) |
 | `server/Importer.php`, `server/Xlsx.php` | Excel import (preview, confirm, undo) and export |
+| `server/Pmt.php` | Fills the PMT Excel template with one facility's addresses |
 | `server/Dashboard.php` | The numbers for the dashboard |
 | `server/Auth.php` | Admin sign-in, one admin at a time, protection of requests |
 | `server/Db.php`, `server/bootstrap.php` | Database connection; loading of the server files |
 | `server/config.example.php` | Layout of `config.php`, which the setup page creates (MySQL login) |
 | `database/ipgen.sql` | **The database**: all tables and the starting rules |
+| `database/pmt-template.xlsx` | The default PMT template (dummy layout); a new one can be uploaded in Settings |
 | `database/sample-data.xlsx` | Sample sheet to try the import (10 rows added, 3 rejected on purpose) |
 | `tests/engine_test.php` | Automatic check of the rules (28 tests): `php tests/engine_test.php` |
 | `.htaccess` (root, `server/`, `database/`, `tests/`) | Security: server files, settings and tests can never be opened from the browser |
@@ -76,6 +78,13 @@ The setup page runs this file automatically. It can also be imported by hand in 
 ## Address blocks
 Every GCP & Ring + vendor has an **active block** of host numbers. When it is full, generation stops (no automatic overflow).
 The admin plans the next block in Settings, prepares the network, then presses **Activate now**; the old block is retired and its addresses stay reserved.
+
+## PMT file
+The **PMT** button in IP Management (and **Download PMT** after saving a new facility) gives `PMT-UTMN-1001.xlsx`:
+the PMT template filled with that facility's addresses. In the template, any cell can hold a field name in braces,
+for example `{Facility Name}`, `{RTU IP-1}`, `{Gateway-1}`, `{RTU VLAN}`; everything else in the file stays exactly as it is.
+A field that does not apply (RTU Internal for Honeywell) is filled with `-`. In **Settings > PMT file template** the admin
+can download the template, upload a new one (it is checked first: misspelled field names are refused) or go back to the default.
 
 ## Backup
 Worksheet > **Export Excel**, or phpMyAdmin > database `ipgen` > Export.

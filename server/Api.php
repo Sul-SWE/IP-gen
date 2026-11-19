@@ -264,6 +264,8 @@ final class Api
             ['GET', '#^/engineers/suggest$#', 'engineers'], ['GET', '#^/audit-log$#', 'auditLog'],
             ['POST', '#^/import/preview$#', 'importPreview'], ['POST', '#^/import/confirm$#', 'importConfirm'], ['GET', '#^/import/last$#', 'importLast'],
             ['POST', '#^/import/undo-last$#', 'importUndo'], ['GET', '#^/export$#', 'export'],
+            ['GET', '#^/records/(\d+)/pmt$#', 'recordPmt'], ['GET', '#^/admin/pmt-template$#', 'pmtTemplate'],
+            ['POST', '#^/admin/pmt-template$#', 'uploadPmtTemplate'], ['POST', '#^/admin/pmt-template/reset$#', 'resetPmtTemplate'],
             ['GET', '#^/admin/rules$#', 'adminRules'], ['POST', '#^/admin/facilities$#', 'addFacility', 201], ['PATCH', '#^/admin/facilities/(\d+)$#', 'patchFacility'],
             ['POST', '#^/admin/gcps$#', 'addGcp', 201], ['PATCH', '#^/admin/gcps/(\d+)$#', 'patchGcp'], ['POST', '#^/admin/vendors/check$#', 'checkVendor'],
             ['POST', '#^/admin/vendors$#', 'addVendor', 201], ['PATCH', '#^/admin/vendors/(\d+)$#', 'patchVendor'], ['POST', '#^/admin/blocks$#', 'addBlock', 201],
@@ -518,19 +520,79 @@ final class Api
         return $this->db()->write(fn(Db $db) => Importer::undoLast($db, $b['actor'], $b['batch']));
     }
 
+    private static function sendXlsx(string $bin, string $name, array $extra = []): void
+    {
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $name . '"');
+        foreach ($extra as $h) { header($h); }
+        header('Cache-Control: no-store');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . strlen($bin));
+        echo $bin;
+    }
+
     private function export(): ?array
     {
         $this->requireAdmin();
         [$bin, $name, $n] = Importer::export($this->db());
         if (!$n) { throw ApiError::bad('There are no active records to export.', [], 'nothing_to_export'); }
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="' . $name . '"');
-        header('X-Record-Count: ' . $n);
-        header('Cache-Control: no-store');
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . strlen($bin));
-        echo $bin;
+        self::sendXlsx($bin, $name, ['X-Record-Count: ' . $n]);
         return null;
+    }
+
+    /* ------------------------------------------------------------ PMT file (admin) */
+    private function recordPmt(int $id): ?array
+    {
+        $this->requireAdmin();
+        $db = $this->db();
+        $rec = Records::serializeOne($db, Records::get($db, $id));
+        $path = Pmt::templatePath();
+        if (!is_file($path)) { throw ApiError::bad('No PMT template was found. Upload one in Settings.', [], 'no_template'); }
+        $bin = Pmt::fill((string)file_get_contents($path), Pmt::values($rec, $db->today()));
+        self::sendXlsx($bin, Pmt::fileName($rec['name']));
+        return null;
+    }
+
+    private function pmtTemplate(): ?array
+    {
+        $this->requireAdmin();
+        $path = Pmt::templatePath();
+        if (!is_file($path)) { throw ApiError::bad('No PMT template was found.', [], 'no_template'); }
+        self::sendXlsx((string)file_get_contents($path), 'PMT-template.xlsx');
+        return null;
+    }
+
+    private function uploadPmtTemplate(): array
+    {
+        $this->requireAdmin();
+        $who = $this->actor((string)($_POST['actor'] ?? ''));
+        $f = $_FILES['file'] ?? null;
+        if (!$f || is_array($f['name']) || $f['error'] === UPLOAD_ERR_NO_FILE) { throw new ApiError(422, 'validation', 'Choose the template file.', ['file: Field required']); }
+        if (in_array($f['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) || (int)$f['size'] > Pmt::MAX_BYTES) {
+            throw new ApiError(413, 'too_large', 'The template is larger than 2 MB.');
+        }
+        if ($f['error'] !== UPLOAD_ERR_OK) { throw ApiError::bad('The file could not be uploaded. Try again.', [], 'upload_failed'); }
+        if (!preg_match('/\.xlsx$/i', (string)$f['name'])) { throw ApiError::bad('The template must be an Excel file (.xlsx).', [], 'wrong_type'); }
+        $data = (string)file_get_contents($f['tmp_name']);
+        $fields = Pmt::check($data);
+        @mkdir(__DIR__ . '/storage', 0770, true);
+        if (@file_put_contents(__DIR__ . '/storage/pmt-template.xlsx', $data, LOCK_EX) === false) {
+            throw ApiError::bad('Could not save the template. Make sure the server folder is not read-only.', [], 'save_failed');
+        }
+        $db = $this->db();
+        $db->write(fn(Db $db) => $this->log($db, $who, 'PMT template', 'New template uploaded (' . count($fields) . ' fields: ' . implode(', ', $fields) . ')'));
+        return ['ok' => true, 'fields' => $fields, 'custom' => true];
+    }
+
+    private function resetPmtTemplate(): array
+    {
+        $this->requireAdmin();
+        $b = $this->body(['actor' => self::ACTOR]);
+        $who = $this->actor($b['actor']);
+        if (Pmt::isCustom()) { @unlink(__DIR__ . '/storage/pmt-template.xlsx'); }
+        $db = $this->db();
+        $db->write(fn(Db $db) => $this->log($db, $who, 'PMT template', 'Back to the default template'));
+        return ['ok' => true, 'custom' => false, 'fields' => Pmt::check((string)file_get_contents(Pmt::templatePath()))];
     }
 
     /* ------------------------------------------------------------ settings / admin panel */
@@ -571,8 +633,16 @@ final class Api
             'vendors' => array_map(fn($v) => ['id' => $v['id'], 'name' => $v['name'], 'capacity' => $v['capacity'], 'octets' => (object)$v['octets'],
                 'fields' => $v['fields'], 'active' => $v['active']], $rules->vendors),
             'settings' => ['warn_at' => (int)round($rules->warnAt * 100), 'mask' => $rules->mask],
+            'pmt' => self::pmtInfo(),
             'ip_fields' => Engine::ipFields(), 'device_fields' => Engine::UNIQ, 'infra_fields' => Engine::INFRA, 'nets' => Engine::NETS,
         ];
+    }
+
+    private static function pmtInfo(): array
+    {
+        $path = Pmt::templatePath();
+        try { $fields = is_file($path) ? Pmt::check((string)file_get_contents($path)) : []; } catch (ApiError $e) { $fields = []; }
+        return ['custom' => Pmt::isCustom(), 'fields' => $fields, 'all_fields' => Pmt::fields()];
     }
 
     private function addFacility(): array

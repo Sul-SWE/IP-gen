@@ -31,7 +31,11 @@ var API = {
   post: function (url, body) { return API.call('POST', url, body === undefined ? {} : body); },
   patch: function (url, body) { return API.call('PATCH', url, body); },
   del: function (url, body) { return API.call('DELETE', url, body); },
-  upload: function (url, file) { var f = new FormData(); f.append('file', file, file.name); return API.call('POST', url, f, true); },
+  upload: function (url, file, fields) {
+    var f = new FormData(); f.append('file', file, file.name);
+    for (var k in fields || {}) f.append(k, fields[k]);
+    return API.call('POST', url, f, true);
+  },
 
   // file download through fetch, so the admin cookie and errors are handled like any other call
   download: function (url) {

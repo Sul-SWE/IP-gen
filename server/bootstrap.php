@@ -41,6 +41,7 @@ require __DIR__ . '/Xlsx.php';
 require __DIR__ . '/Rules.php';
 require __DIR__ . '/Records.php';
 require __DIR__ . '/Importer.php';
+require __DIR__ . '/Pmt.php';
 require __DIR__ . '/Dashboard.php';
 require __DIR__ . '/Auth.php';
 require __DIR__ . '/Api.php';

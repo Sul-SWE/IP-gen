@@ -69,10 +69,13 @@ function show(r, note) {
       return '<div class="gcard' + (i === 4 ? ' shared' : '') + '"><h3>' + g[0] + '</h3>' + g[1].filter(function (f) { return ips[f]; }).map(function (f) { return '<div><span>' + f + '</span><code>' + esc(ips[f]) + '</code></div>'; }).join('') + '</div>';
     }).join('') + '</div>' +
     '<div class="pvfoot">' + (r.saved
-      ? '<button class="primary" type="button" id="btnNew">Create another facility</button><button type="button" id="btnCopy">Copy IPs</button><a class="btn ghost" href="worksheet.html">Open worksheet</a>'
+      ? '<button class="primary" type="button" id="btnPmt">Download PMT</button><button type="button" id="btnNew">Create another facility</button><button type="button" id="btnCopy">Copy IPs</button>'
       : '<button class="primary" type="button" id="btnSave">Save ' + esc(r.name) + '</button><button type="button" id="btnCopy">Copy IPs</button><small>Check the addresses, then save.</small>') + '</div>';
   $('#btnCopy').onclick = function () { copyIps(this); };
-  if (r.saved) $('#btnNew').onclick = function () { $('#num').value = ''; pv = null; changed(); clearPv(); $('#num').focus(); };
+  if (r.saved) {
+    $('#btnNew').onclick = function () { $('#num').value = ''; pv = null; changed(); clearPv(); $('#num').focus(); };
+    $('#btnPmt').onclick = function () { downloadPmt(r.id, this); };
+  }
   else $('#btnSave').onclick = save;
 }
 
@@ -102,11 +105,18 @@ function save() {
   var b = body(); b.signature = pv.signature;
   API.post('/records', b).then(function (rec) {
     setActor(rec.engineer); fillEngineerList();
-    pv.saved = true; show(pv);
+    pv.saved = true; pv.id = rec.id; show(pv);
     msg('Saved <b>' + esc(rec.name) + '</b>. Its addresses are now reserved.', 1);
     loadRanges();
   }, function (e) {
     if (e.error === 'preview_changed' && e.preview) { pv = e.preview; show(pv, '<b>The addresses changed since your preview</b> (another change was saved meanwhile). Check the new preview and press Save again.'); loadRanges(); return; }
     clearPv(); showErr(e); loadRanges();
   }).then(function () { working = false; busy($('#btnSave'), false); });
+}
+
+// fills the PMT template with this record's addresses and downloads it (PMT-UTMN-1001.xlsx)
+function downloadPmt(id, btn) {
+  busy(btn, true);
+  API.download('/records/' + id + '/pmt').then(function (f) { msg('Downloaded <b>' + esc(f.name) + '</b>.', 1); }, showErr)
+    .then(function () { busy(btn, false); });
 }

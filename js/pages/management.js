@@ -75,7 +75,7 @@ function draw() {
       : td('Facility', r.name, 'strong') + td('GCP & Ring', r.gcp) + td('Vendor', r.vendor) + td('Date', r.date) + td('Engineer', r.engineer) + td('RTU IP-1', r.ips['RTU IP-1'], 'ip') + td('PLC IP-1', r.ips['PLC IP-1'], 'ip');
     var acts = '<button class="sm ghost" data-a="ips" data-id="' + id + '" aria-expanded="' + !!openIds[id] + '">IPs ' + (openIds[id] ? '&#9652;' : '&#9662;') + '</button>' + (trash
       ? '<button class="sm" data-a="restore" data-id="' + id + '">Restore</button><button class="sm danger" data-a="purge" data-id="' + id + '">Delete forever</button>'
-      : '<button class="sm" data-a="edit" data-id="' + id + '">Modify</button><button class="sm danger" data-a="del" data-id="' + id + '">Delete</button>');
+      : '<button class="sm" data-a="pmt" data-id="' + id + '" title="Download the PMT file of this facility">PMT</button><button class="sm" data-a="edit" data-id="' + id + '">Modify</button><button class="sm danger" data-a="del" data-id="' + id + '">Delete</button>');
     return '<tr>' + cells + '<td class="act">' + acts + '</td></tr>' + (openIds[id] ? '<tr class="detail"><td colspan="' + cols + '">' + ipGrid(r) + '</td></tr>' : '');
   }).join('') || '<tr><td colspan="' + cols + '" class="empty">' + (q ? 'No records match your search.' : trash ? 'The trash is empty.' : 'No records yet. <a href="generate.html">Create the first one</a>.') + '</td></tr>') + '</tbody>';
 }
@@ -86,7 +86,7 @@ function onTableClick(e) {
   var id = +b.dataset.id, a = b.dataset.a, r = items.filter(function (x) { return x.id === id; })[0];
   if (!r) return;
   if (a === 'ips') { openIds[id] = !openIds[id]; return draw(); }
-  ({ edit: edit, del: del, restore: restore, purge: purge })[a](r);
+  ({ pmt: pmt, edit: edit, del: del, restore: restore, purge: purge })[a](r, b);
 }
 // the server works on the newest data; if this record changed elsewhere it answers 409 and the list is refreshed
 function run(promise, okHtml) {
@@ -114,6 +114,13 @@ function purge(r) {
   .then(function (who) {
     if (who) run(API.del('/records/' + r.id + '/permanent', { actor: who.name, version: r.version }), function (x) { return '<b>' + esc(x.name) + '</b> deleted forever. Its IPs are free again.'; });
   });
+}
+
+/* ----- PMT file: the template filled with this record's addresses ----- */
+function pmt(r, btn) {
+  busy(btn, true);
+  API.download('/records/' + r.id + '/pmt').then(function (f) { msg('Downloaded <b>' + esc(f.name) + '</b>.', 1); }, showErr)
+    .then(function () { busy(btn, false); });
 }
 
 /* ----- Modify ----- */
